@@ -3875,23 +3875,30 @@ app.get("/api/system/download-scripts-zip", (req, res) => {
     // Add a helpful README.txt inside the zip
     const readmeContent = `================================================================
 Telegram Inventory Bot - Windows & PC Management Package
-سامانه مدیریت، نصب و بروزرسانی ربات تلگرام در کامپیوتر ویندوز
+Management, Setup, GitHub Auto-Updater & Windows Service Console
 ================================================================
 
-راهنمای سریع استفاده در کامپیوتر:
-1. برای باز کردن منوی تعاملی و هوشمند (مشابه لینوکس):
-   - روی فایل menu.bat یا manager.bat دو بار کلیک کنید.
+QUICK START ON WINDOWS & PC:
+1. Interactive Management Menu (Linux Style Console):
+   - Double-click on 'menu.bat' or 'manager.bat' (or 'install.bat').
    
-2. امکانات منو:
-   - دریافت آدرس گیت‌هاب و نصب کامل خودکار (گزینه 1)
-   - بروزرسانی سریع آخرین کدها از گیت‌هاب (گزینه 2)
-   - تغییر آدرس مخزن گیت‌هاب (گزینه 3)
-   - راه‌اندازی، توقف و بررسی وضعیت سلامت ربات (گزینه‌های 4، 5 و 6)
-   - تنظیم پورت، پروکسی ضد فیلتر و متغیرهای سرور (گزینه 8)
-   - اجرای نامرئی و خودکار پس‌زمینه در ویندوز (گزینه 9)
+2. Available Menu Options:
+   - 1) Full Install & Setup from GitHub
+   - 2) Fast 1-Click Update to latest GitHub version
+   - 3) Change GitHub Repository URL
+   - 4) Restart Bot Service & Web Panel
+   - 5) Stop Bot Service
+   - 6) Service Status & System Diagnostics
+   - 7) View System Live Logs
+   - 8) Configure Port, Proxy & Bot Token (.env)
+   - 9) Windows 24/7 Auto-Start Background Service Manager
+   - 10) Uninstall Bot & Clean up
 
-3. برای شروع سریع سرور:
-   - فایل start.bat را اجرا کنید تا وب‌پنل در مرورگر باز شود.
+3. To launch the server immediately in interactive mode:
+   - Double-click 'start.bat' (opens Web Panel in browser automatically).
+
+4. To run silently in background as Windows Service:
+   - Right-click 'install-windows-service.bat' and select 'Run as Administrator'.
 ================================================================
 `;
     zip.addFile("README.txt", Buffer.from(readmeContent, "utf8"));

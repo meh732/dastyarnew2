@@ -2,9 +2,8 @@
 
 /**
  * =====================================================================
- * Telegram Inventory Bot - Interactive PC Manager & Installer (Windows/PC)
- * منوی تعاملی مدیریت، نصب، بروزرسانی و پیکربندی ربات در کامپیوتر (ویندوز / مک / لینوکس)
- * دقیقاً مشابه منوی لینوکس با قابلیت دریافت آدرس گیت‌هاب و بروزرسانی خودکار
+ * Telegram Inventory Assistant - PC Management & Install Console
+ * Interactive Windows, Linux & macOS Console (100% Clean English ASCII)
  * =====================================================================
  */
 
@@ -126,7 +125,7 @@ function getGitRepoUrl() {
     const remoteUrl = execSync('git config --get remote.origin.url', { stdio: ['pipe', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
     if (remoteUrl) return remoteUrl;
   } catch (e) {
-    // Git might not be initialized or configured
+    // Git might not be initialized
   }
   return DEFAULT_REPO;
 }
@@ -151,7 +150,7 @@ function getGitCommitInfo() {
     const hash = execSync('git log -1 --format="%h - %s (%cr)"', { stdio: ['pipe', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
     return hash || 'No git commit history';
   } catch (e) {
-    return 'Not a git repository or git not available';
+    return 'Git repository not found or git not available';
   }
 }
 
@@ -180,7 +179,7 @@ async function testProxy(proxyUrl) {
       });
       req.on('timeout', () => {
         req.destroy();
-        resolve({ success: false, error: 'زمان اتصال به پایان رسید (Timeout)' });
+        resolve({ success: false, error: 'Connection timed out (Timeout)' });
       });
     });
   } catch (err) {
@@ -194,7 +193,6 @@ async function checkPortListening(port) {
       resolve(true);
     });
     tester.on('error', () => {
-      // Also test root if /api/health not responding
       const rootTest = http.get(`http://127.0.0.1:${port}`, { timeout: 1500 }, (res) => {
         resolve(true);
       });
@@ -215,7 +213,7 @@ function showBanner() {
   console.log(`${colors.green}${colors.bright}   |___|_| |_|\\_/ \\___|_| |_|\\__\\___/|_|   \\__, |   ${colors.reset}`);
   console.log(`${colors.green}${colors.bright}                                           |___/    ${colors.reset}`);
   console.log(`${colors.cyan}    Telegram Inventory Assistant - PC Management & Install Console    ${colors.reset}`);
-  console.log(`${colors.yellow}      سامانه تعاملی مدیریت، نصب و بروزرسانی ربات در کامپیوتر (ویندوز)       ${colors.reset}`);
+  console.log(`${colors.yellow}      Fast Setup, GitHub Auto-Updater & Windows Service Manager       ${colors.reset}`);
   console.log(`${colors.cyan}======================================================================${colors.reset}`);
 }
 
@@ -223,102 +221,110 @@ async function showHeaderStatus() {
   const env = loadEnv();
   const repoUrl = getGitRepoUrl();
   const port = env.PORT || '3000';
-  const proxy = env.PROXY_URL || 'Direct (بدون پروکسی)';
+  const proxy = env.PROXY_URL || 'Direct (No Proxy)';
   const isRunning = await checkPortListening(port);
 
-  console.log(` 🌐 ${colors.bright}آدرس گیت‌هاب (GitHub):${colors.reset}   ${colors.yellow}${repoUrl}${colors.reset}`);
-  console.log(` 🔌 ${colors.bright}وضعیت سرویس (Status):${colors.reset}   ${isRunning ? colors.green + '● در حال اجرا (RUNNING) در پورت ' + port : colors.red + '○ خاموش (STOPPED)'}${colors.reset}`);
-  console.log(` 🛡️  ${colors.bright}پروکسی تلگرام (Proxy):${colors.reset}    ${colors.cyan}${proxy}${colors.reset}`);
+  console.log(` GitHub Repo:   ${colors.yellow}${repoUrl}${colors.reset}`);
+  console.log(` Service State: ${isRunning ? colors.green + '[RUNNING] on Port ' + port : colors.red + '[STOPPED]'}${colors.reset}`);
+  console.log(` Proxy:         ${colors.cyan}${proxy}${colors.reset}`);
   console.log(`${colors.cyan}----------------------------------------------------------------------${colors.reset}`);
 }
 
 // 1. Full Install / Reinstall
 async function fullInstall() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.green}>>> [1] نصب و راه‌اندازی کامل ربات از گیت‌هاب (Full Install / Reinstall)${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.green}>>> [1] Full Installation & Setup from GitHub${colors.reset}\n`);
 
   const currentRepo = getGitRepoUrl();
-  console.log(`آدرس مخزن گیت‌هاب فعلی: ${colors.cyan}${currentRepo}${colors.reset}`);
-  const inputRepo = await ask(`آدرس مخزن گیت‌هاب را وارد کنید [Enter برای استفاده از همین آدرس]: `);
+  console.log(`Current GitHub Repository: ${colors.cyan}${currentRepo}${colors.reset}`);
+  const inputRepo = await ask(`Enter GitHub Repository URL [Press Enter for default: ${currentRepo}]: `);
   const finalRepo = inputRepo || currentRepo;
   setGitRepoUrl(finalRepo);
 
-  console.log(`\n${colors.blue}[1/4] دریافت و بروزرسانی آخرین سورس کد از گیت‌هاب...${colors.reset}`);
+  console.log(`\n${colors.blue}[1/4] Fetching latest source code from GitHub...${colors.reset}`);
   try {
-    // If git is present
     if (fs.existsSync(path.join(process.cwd(), '.git'))) {
       try {
         execSync(`git remote set-url origin "${finalRepo}"`, { stdio: 'inherit' });
         execSync('git fetch --all', { stdio: 'inherit' });
-        execSync('git reset --hard origin/main || git reset --hard origin/master || git pull', { stdio: 'inherit', shell: true });
-        console.log(`${colors.green}[OK] آخرین تغییرات از گیت‌هاب دریافت شد.${colors.reset}`);
+        execSync('git reset --hard origin/main || git reset --hard origin/master || git pull', { 
+          stdio: 'inherit', 
+          shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
+        });
+        console.log(`${colors.green}[OK] Source code synced with GitHub successfully.${colors.reset}`);
       } catch (ge) {
-        console.log(`${colors.yellow}[!] اخطار دریافت گیت: ${ge.message}. با فایل‌های محلی ادامه می‌دهیم...${colors.reset}`);
+        console.log(`${colors.yellow}[!] Git sync note: ${ge.message}. Continuing with local files...${colors.reset}`);
       }
     } else {
-      console.log(`[INFO] پوشه .git شناسایی نشد. راه‌اندازی در پوشه جاری انجام می‌شود.`);
+      console.log(`[INFO] .git directory not found. Proceeding with current folder.`);
     }
   } catch (e) {
-    console.log(`${colors.yellow}[!] بررسی گیت تکمیل شد.${colors.reset}`);
+    console.log(`${colors.yellow}[!] Git verification completed.${colors.reset}`);
   }
 
   // Install dependencies
-  console.log(`\n${colors.blue}[2/4] نصب پکیج‌ها و پیش‌نیازهای پروژه (npm install)...${colors.reset}`);
+  console.log(`\n${colors.blue}[2/4] Installing project dependencies (npm install)...${colors.reset}`);
   try {
     execSync('npm install --no-audit', { stdio: 'inherit' });
-    console.log(`${colors.green}[OK] پکیج‌ها با موفقیت نصب شدند.${colors.reset}`);
+    console.log(`${colors.green}[OK] Dependencies installed successfully.${colors.reset}`);
   } catch (e) {
-    console.log(`${colors.red}[ERROR] خطا در npm install: ${e.message}${colors.reset}`);
+    console.log(`${colors.red}[ERROR] npm install error: ${e.message}${colors.reset}`);
   }
 
   // Build
-  console.log(`\n${colors.blue}[3/4] ساخت و کامپایل فایل‌های اجرایی (npm run build)...${colors.reset}`);
+  console.log(`\n${colors.blue}[3/4] Compiling and building production assets (npm run build)...${colors.reset}`);
   try {
     execSync('npm run build', { stdio: 'inherit' });
-    console.log(`${colors.green}[OK] کامپایل پروژه با موفقیت انجام شد.${colors.reset}`);
+    console.log(`${colors.green}[OK] Production build created successfully.${colors.reset}`);
   } catch (e) {
-    console.log(`${colors.yellow}[!] هشدار در بیلد: ${e.message}${colors.reset}`);
+    console.log(`${colors.yellow}[!] Build note: ${e.message}${colors.reset}`);
   }
 
   // Environment setup
-  console.log(`\n${colors.blue}[4/4] پیکربندی متغیرهای سرور، پورت و پروکسی ضد فیلتر...${colors.reset}`);
+  console.log(`\n${colors.blue}[4/4] Configuring Environment Variables (.env)...${colors.reset}`);
   await configureEnvironmentInteractive();
 
-  console.log(`\n${colors.green}${colors.bright}🎉 نصب و راه‌اندازی با موفقیت به پایان رسید!${colors.reset}`);
+  console.log(`\n${colors.green}${colors.bright}======================================================================${colors.reset}`);
+  console.log(`${colors.green}${colors.bright} 🎉 Installation & Setup Completed Successfully!                      ${colors.reset}`);
+  console.log(`${colors.green}${colors.bright}======================================================================${colors.reset}`);
   const env = loadEnv();
   const port = env.PORT || '3000';
-  console.log(`🌐 آدرس پنل تحت وب: ${colors.cyan}http://localhost:${port}${colors.reset}`);
+  console.log(`Web Management Panel: ${colors.cyan}http://localhost:${port}${colors.reset}`);
 
-  const startMode = await ask(`\nآیا می‌خواهید برنامه اکنون اجرا شود؟\n 1. اجرای نامرئی به عنوان سرویس دائمی ویندوز (پیشنهادی)\n 2. اجرای معمولی در ترمینال جاری\n 0. بازگشت به منو\nانتخاب [1]: `);
+  console.log(`\nChoose execution mode:`);
+  console.log(` 1. Install & Run as Permanent 24/7 Windows Background Service (Recommended)`);
+  console.log(` 2. Start now in current terminal window`);
+  console.log(` 0. Return to Main Menu`);
+  const startMode = await ask(`\nSelect [Default: 1]: `);
 
   if (startMode === '1' || startMode === '') {
     try {
       execSync('node windows-service-install.js', { stdio: 'inherit' });
       if (process.platform === 'win32') execSync(`start "" "http://localhost:${port}"`);
-      console.log(`\n${colors.green}[OK] سرویس ویندوز فعال شد و مرورگر باز گردید.${colors.reset}`);
+      console.log(`\n${colors.green}[OK] Windows Service installed and active. Browser opened.${colors.reset}`);
     } catch (err) {
-      console.log(`${colors.yellow}برای نصب سرویس ویندوز، فایل install-windows-service.bat را با Run as Administrator اجرا کنید.${colors.reset}`);
+      console.log(`${colors.yellow}Note: To install Windows Service with administrator rights, run install-windows-service.bat as Administrator.${colors.reset}`);
     }
   } else if (startMode === '2') {
     startInteractiveProcess(port);
     return;
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 2. Update from GitHub
 async function updateFromGithub() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.green}>>> [2] بروزرسانی سریع ربات از مخزن گیت‌هاب (Update Bot from GitHub)${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.green}>>> [2] Update Bot to Latest GitHub Version${colors.reset}\n`);
 
   const currentRepo = getGitRepoUrl();
-  console.log(`مخزن گیت‌هاب: ${colors.yellow}${currentRepo}${colors.reset}`);
-  const repoInput = await ask(`آدرس مخزن را تایید کنید [Enter برای ادامه]: `);
+  console.log(`Target Repository: ${colors.yellow}${currentRepo}${colors.reset}`);
+  const repoInput = await ask(`Press [Enter] to confirm repository URL: `);
   const repoToUse = repoInput || currentRepo;
   setGitRepoUrl(repoToUse);
 
-  console.log(`\n${colors.blue}[1/3] دریافت آخرین کامیت‌ها و تغییرات از گیت‌هاب...${colors.reset}`);
+  console.log(`\n${colors.blue}[1/3] Pulling latest commits from GitHub...${colors.reset}`);
   try {
     try {
       execSync(`git remote set-url origin "${repoToUse}"`, { stdio: 'inherit' });
@@ -328,96 +334,107 @@ async function updateFromGithub() {
       } catch (err) {}
     }
     execSync('git fetch --all', { stdio: 'inherit' });
-    execSync('git pull origin main || git pull origin master || git pull', { stdio: 'inherit', shell: true });
-    console.log(`${colors.green}[OK] کدهای جدید با موفقیت دریافت شدند.${colors.reset}`);
+    execSync('git pull origin main || git pull origin master || git pull', { 
+      stdio: 'inherit', 
+      shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
+    });
+    console.log(`${colors.green}[OK] Latest code pulled from GitHub.${colors.reset}`);
   } catch (e) {
-    console.log(`${colors.yellow}[!] تلاش برای هماهنگ‌سازی با git reset...${colors.reset}`);
+    console.log(`${colors.yellow}[!] Syncing with git reset...${colors.reset}`);
     try {
-      execSync('git reset --hard origin/main || git reset --hard origin/master', { stdio: 'inherit', shell: true });
+      execSync('git reset --hard origin/main || git reset --hard origin/master', { 
+        stdio: 'inherit', 
+        shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
+      });
     } catch (err) {
-      console.log(`${colors.red}[ERROR] خطا در دریافت از گیت‌هاب: ${err.message}${colors.reset}`);
+      console.log(`${colors.red}[ERROR] Git pull error: ${err.message}${colors.reset}`);
     }
   }
 
-  console.log(`\n${colors.blue}[2/3] بررسی و نصب پکیج‌های جدید (npm install)...${colors.reset}`);
+  console.log(`\n${colors.blue}[2/3] Updating npm packages (npm install)...${colors.reset}`);
   try {
     execSync('npm install --no-audit', { stdio: 'inherit' });
   } catch (e) {
-    console.log(`${colors.yellow}هشدار npm: ${e.message}${colors.reset}`);
+    console.log(`${colors.yellow}npm note: ${e.message}${colors.reset}`);
   }
 
-  console.log(`\n${colors.blue}[3/3] کامپایل مجدد نسخه تولیدی (npm run build)...${colors.reset}`);
+  console.log(`\n${colors.blue}[3/3] Rebuilding production bundle (npm run build)...${colors.reset}`);
   try {
     execSync('npm run build', { stdio: 'inherit' });
-    console.log(`${colors.green}[OK] پروژه با موفقیت مجدداً بیلد شد.${colors.reset}`);
+    console.log(`${colors.green}[OK] Project successfully rebuilt.${colors.reset}`);
   } catch (e) {
-    console.log(`${colors.yellow}هشدار بیلد: ${e.message}${colors.reset}`);
+    console.log(`${colors.yellow}Build note: ${e.message}${colors.reset}`);
   }
 
-  console.log(`\n${colors.green}${colors.bright}✅ بروزرسانی از گیت‌هاب با موفقیت پایان یافت!${colors.reset}`);
+  console.log(`\n${colors.green}${colors.bright}======================================================================${colors.reset}`);
+  console.log(`${colors.green}${colors.bright} ✅ Update from GitHub Completed Successfully!                        ${colors.reset}`);
+  console.log(`${colors.green}${colors.bright}======================================================================${colors.reset}`);
   
   // Restart service if installed
-  console.log(`در حال راه‌اندازی مجدد سرویس‌ها...`);
+  console.log(`Restarting service...`);
   try {
     if (process.platform === 'win32') {
       execSync('node windows-service-install.js', { stdio: 'inherit' });
     }
   } catch (e) {}
 
-  await ask(`\nبرای بازگشت به منوی اصلی Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 3. Set/Change Git Repo URL
 async function changeGitRepo() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.green}>>> [3] تنظیم یا تغییر آدرس مخزن گیت‌هاب (Set/Change GitHub Repo URL)${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.green}>>> [3] Change GitHub Repository URL${colors.reset}\n`);
 
   const current = getGitRepoUrl();
-  console.log(`آدرس فعلی: ${colors.yellow}${current}${colors.reset}\n`);
-  const newUrl = await ask(`آدرس جدید گیت‌هاب را وارد کنید (مثال: https://github.com/username/repo.git): `);
+  console.log(`Current URL: ${colors.yellow}${current}${colors.reset}\n`);
+  const newUrl = await ask(`Enter new GitHub Repository URL (e.g. https://github.com/user/repo.git): `);
 
   if (newUrl) {
     setGitRepoUrl(newUrl);
-    console.log(`\n${colors.green}[OK] آدرس مخزن گیت‌هاب به ${newUrl} تغییر یافت و در .env ذخیره شد.${colors.reset}`);
+    console.log(`\n${colors.green}[OK] GitHub Repository URL updated to ${newUrl} and saved in .env.${colors.reset}`);
   } else {
-    console.log(`\n${colors.yellow}تغییری اعمال نشد.${colors.reset}`);
+    console.log(`\n${colors.yellow}No changes made.${colors.reset}`);
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 4. Start / Restart Service
 async function restartService() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.green}>>> [4] راه‌اندازی مجدد سرویس و وب‌پنل (Restart Service)${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.green}>>> [4] Restart Bot Service & Web Panel${colors.reset}\n`);
   const env = loadEnv();
   const port = env.PORT || '3000';
 
   if (process.platform === 'win32') {
-    console.log(`در حال متوقف کردن پروسه‌های قبلی پورت ${port}...`);
+    console.log(`Stopping previous processes on port ${port}...`);
     try {
-      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { stdio: 'ignore', shell: true });
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { 
+        stdio: 'ignore', 
+        shell: 'cmd.exe' 
+      });
     } catch (e) {}
 
-    console.log(`راه‌اندازی مجدد سرویس پس‌زمینه ویندوز...`);
+    console.log(`Starting Windows Background Service...`);
     try {
       execSync('node windows-service-install.js', { stdio: 'inherit' });
-      console.log(`\n${colors.green}[OK] سرویس با موفقیت راه‌اندازی شد.${colors.reset}`);
+      console.log(`\n${colors.green}[OK] Service started successfully.${colors.reset}`);
       execSync(`start "" "http://localhost:${port}"`);
     } catch (e) {
-      console.log(`${colors.yellow}برای راه‌اندازی دستی، می‌توانید start.bat را اجرا کنید.${colors.reset}`);
+      console.log(`${colors.yellow}To run interactively, you can run start.bat.${colors.reset}`);
     }
   } else {
-    console.log(`سیستم‌عامل غیر ویندوز شناسایی شد. برای شروع دستی: npm start`);
+    console.log(`Non-Windows system. Run npm start to launch.`);
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 5. Stop Service
 async function stopService() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.red}>>> [5] توقف سرویس و خاموش کردن برنامه (Stop Service)${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.red}>>> [5] Stop Bot Service${colors.reset}\n`);
   const env = loadEnv();
   const port = env.PORT || '3000';
 
@@ -427,21 +444,24 @@ async function stopService() {
     } catch (e) {}
 
     try {
-      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { stdio: 'ignore', shell: true });
-      console.log(`${colors.green}[OK] پروسه‌های فعال پورت ${port} بسته شدند.${colors.reset}`);
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { 
+        stdio: 'ignore', 
+        shell: 'cmd.exe' 
+      });
+      console.log(`${colors.green}[OK] Active processes on port ${port} terminated.${colors.reset}`);
     } catch (e) {
-      console.log(`${colors.yellow}پروسه فعالی روی پورت ${port} یافت نشد.${colors.reset}`);
+      console.log(`${colors.yellow}No active process found on port ${port}.${colors.reset}`);
     }
   }
 
-  console.log(`\n${colors.green}سرویس با موفقیت خاموش شد.${colors.reset}`);
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  console.log(`\n${colors.green}Service stopped successfully.${colors.reset}`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 6. Check Status
 async function checkStatus() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.cyan}>>> [6] بررسی وضعیت و پایش سلامت سیستم (System & Service Status)${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.cyan}>>> [6] Service Status & System Diagnostics${colors.reset}\n`);
 
   const env = loadEnv();
   const port = env.PORT || '3000';
@@ -449,41 +469,40 @@ async function checkStatus() {
   const repo = getGitRepoUrl();
   const gitInfo = getGitCommitInfo();
 
-  console.log(` 📦 ${colors.bright}پلتفرم و محیط:${colors.reset}        ${process.platform} (${process.arch})`);
-  console.log(` 🟢 ${colors.bright}نسخه Node.js:${colors.reset}         ${process.version}`);
-  console.log(` 🌐 ${colors.bright}آدرس مخزن گیت‌هاب:${colors.reset}    ${colors.yellow}${repo}${colors.reset}`);
-  console.log(` 🔖 ${colors.bright}آخرین کامیت گیت:${colors.reset}      ${colors.white}${gitInfo}${colors.reset}`);
-  console.log(` 🚪 ${colors.bright}پورت سرور (PORT):${colors.reset}     ${port}`);
-  console.log(` 🛡️  ${colors.bright}پروکسی ضد فیلتر:${colors.reset}     ${proxy ? colors.cyan + proxy : colors.yellow + 'غیرفعال (اتصال مستقیم)'}${colors.reset}`);
-  console.log(` 🤖 ${colors.bright}توکن ربات تلگرام:${colors.reset}     ${env.BOT_TOKEN ? colors.green + 'تنظیم شده (Configured)' : colors.yellow + 'خالی'}${colors.reset}`);
+  console.log(` OS Platform:       ${process.platform} (${process.arch})`);
+  console.log(` Node.js Version:   ${process.version}`);
+  console.log(` GitHub Repo:       ${colors.yellow}${repo}${colors.reset}`);
+  console.log(` Latest Git Commit: ${colors.white}${gitInfo}${colors.reset}`);
+  console.log(` Server Port:       ${port}`);
+  console.log(` Proxy URL:         ${proxy ? colors.cyan + proxy : colors.yellow + 'Disabled (Direct Connection)'}${colors.reset}`);
+  console.log(` Bot Token:         ${env.BOT_TOKEN ? colors.green + 'Configured' : colors.yellow + 'Not set'}${colors.reset}`);
 
-  process.stdout.write(`\n🔍 در حال بررسی پاسخ‌دهی سرور وب روی پورت ${port}... `);
+  process.stdout.write(`\nChecking Web Server on port ${port}... `);
   const isListening = await checkPortListening(port);
   if (isListening) {
-    console.log(`${colors.green}[فعال - OK]${colors.reset}`);
-    console.log(`   🔗 آدرس وب پنل: ${colors.cyan}http://localhost:${port}${colors.reset}`);
+    console.log(`${colors.green}[ONLINE - ACTIVE]${colors.reset}`);
+    console.log(` Web Panel URL: ${colors.cyan}http://localhost:${port}${colors.reset}`);
   } else {
-    console.log(`${colors.red}[غیرفعال - STOPPED]${colors.reset}`);
+    console.log(`${colors.red}[OFFLINE - STOPPED]${colors.reset}`);
   }
 
   if (proxy) {
-    process.stdout.write(`🔍 تست اتصال به سرورهای تلگرام از طریق پروکسی... `);
+    process.stdout.write(`Testing Telegram connection through proxy (${proxy})... `);
     const pTest = await testProxy(proxy);
     if (pTest.success) {
-      console.log(`${colors.green}[موفق - زمان پاسخ: ${pTest.latency}ms]${colors.reset}`);
+      console.log(`${colors.green}[CONNECTED - Latency: ${pTest.latency}ms]${colors.reset}`);
     } else {
-      console.log(`${colors.red}[ناموفق: ${pTest.error}]${colors.reset}`);
+      console.log(`${colors.red}[FAILED: ${pTest.error}]${colors.reset}`);
     }
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 7. Live Logs
 async function viewLogs() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.yellow}>>> [7] مشاهده لاگ‌ها و رخدادهای سیستم (System Logs)${colors.reset}\n`);
-  console.log(`${colors.dim}برای خروج از حالت لاگ و بازگشت به منو، کلید Ctrl+C را فشار دهید.${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.yellow}>>> [7] System Live Logs${colors.reset}\n`);
 
   const logFiles = ['app.log', 'server.log', 'combined.log', 'error.log'];
   let foundLog = false;
@@ -491,7 +510,7 @@ async function viewLogs() {
   for (const file of logFiles) {
     const fullPath = path.join(process.cwd(), file);
     if (fs.existsSync(fullPath)) {
-      console.log(`${colors.cyan}--- محتوای آخرین خطوط ${file} ---${colors.reset}`);
+      console.log(`${colors.cyan}--- Last lines of ${file} ---${colors.reset}`);
       const content = fs.readFileSync(fullPath, 'utf8');
       const lines = content.split('\n').slice(-30);
       console.log(lines.join('\n'));
@@ -500,11 +519,11 @@ async function viewLogs() {
   }
 
   if (!foundLog) {
-    console.log(`ℹ️ فایل لاگ متنی ذخیره شده در دیسک یافت نشد. لاگ‌ها به صورت زنده در ترمینال سرور نمایش داده می‌شوند.`);
-    console.log(`💡 برای اجرای تعاملی همراه با لاگ زنده، می‌توانید از فایل start.bat استفاده کنید.`);
+    console.log(`[INFO] Server logs are displayed in live terminal session.`);
+    console.log(`To run with live terminal output, launch start.bat.`);
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 8. Configure Environment Interactive
@@ -513,39 +532,39 @@ async function configureEnvironmentInteractive() {
 
   // Port
   const defaultPort = existingEnv.PORT || '3000';
-  const inputPort = await ask(`شماره پورت وب سرور [Enter برای ${defaultPort}]: `);
+  const inputPort = await ask(`Enter Web Server Port [Press Enter for ${defaultPort}]: `);
   const chosenPort = inputPort || defaultPort;
 
   // Proxy
-  console.log(`\nپیکربندی پروکسی ضد فیلتر تلگرام (در صورت مسدود بودن تلگرام):`);
+  console.log(`\nTelegram Proxy Configuration (for anti-censorship):`);
   console.log(`  1. v2rayN (SOCKS5):  socks5://127.0.0.1:10808`);
   console.log(`  2. v2rayN (HTTP):    http://127.0.0.1:10809`);
   console.log(`  3. Clash (HTTP):     http://127.0.0.1:7890`);
-  console.log(`  4. بدون پروکسی (اتصال مستقیم): کافیست Enter بزنید یا 0 وارد کنید`);
+  console.log(`  4. Direct (No Proxy): Press Enter without typing or type 0`);
 
   const defaultProxy = existingEnv.PROXY_URL || '';
-  const inputProxy = await ask(`آدرس پروکسی [Enter برای ${defaultProxy || 'بدون پروکسی'}]: `);
+  const inputProxy = await ask(`Enter Proxy URL [Press Enter for ${defaultProxy || 'Direct'}]: `);
   let chosenProxy = inputProxy !== '' ? inputProxy : defaultProxy;
   if (chosenProxy === '0' || chosenProxy.toLowerCase() === 'none') chosenProxy = '';
 
   if (chosenProxy) {
-    process.stdout.write(`در حال تست اتصال تلگرام از طریق ${chosenProxy}... `);
+    process.stdout.write(`Testing Telegram proxy connection to api.telegram.org... `);
     const res = await testProxy(chosenProxy);
     if (res.success) {
-      console.log(`${colors.green}[موفق - ${res.latency}ms]${colors.reset}`);
+      console.log(`${colors.green}[OK - Connected in ${res.latency}ms]${colors.reset}`);
     } else {
-      console.log(`${colors.red}[خطا: ${res.error}]${colors.reset}`);
+      console.log(`${colors.red}[WARNING - Connection error: ${res.error}]${colors.reset}`);
     }
   }
 
   // Bot Token
   const defaultToken = existingEnv.BOT_TOKEN || '';
-  const inputToken = await ask(`توکن ربات تلگرام (اختیاری) [Enter برای ${defaultToken ? 'توکن ذخیره شده فعلی' : 'خالی'}]: `);
+  const inputToken = await ask(`Enter Telegram Bot Token (Optional) [Press Enter for ${defaultToken ? 'Configured' : 'Empty'}]: `);
   const chosenToken = inputToken !== '' ? inputToken : defaultToken;
 
   // Admin ID
   const defaultAdmin = existingEnv.ADMIN_ID || '';
-  const inputAdmin = await ask(`آیدی عددی تلگرام ادمین (اختیاری) [Enter برای ${defaultAdmin || 'خالی'}]: `);
+  const inputAdmin = await ask(`Enter Telegram Admin User ID (Optional) [Press Enter for ${defaultAdmin || 'Empty'}]: `);
   const chosenAdmin = inputAdmin !== '' ? inputAdmin : defaultAdmin;
 
   saveEnv({
@@ -556,53 +575,53 @@ async function configureEnvironmentInteractive() {
     NODE_ENV: 'production',
   });
 
-  console.log(`\n${colors.green}[OK] تنظیمات در فایل .env ذخیره گردید.${colors.reset}`);
+  console.log(`\n${colors.green}[OK] Configuration saved to .env successfully.${colors.reset}`);
 }
 
 async function changeConfigMenu() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.green}>>> [8] تغییر پورت، پروکسی ضد فیلتر و متغیرهای .env${colors.reset}\n`);
+  console.log(`\n${colors.bright}${colors.green}>>> [8] Configure Port, Proxy & Environment Variables${colors.reset}\n`);
   await configureEnvironmentInteractive();
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 9. Windows Background Service Manager
 async function windowsServiceManager() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.cyan}>>> [9] مدیریت سرویس پس‌زمینه خودکار ویندوز (Windows Service Manager)${colors.reset}\n`);
-  console.log(` 1. ${colors.green}نصب و فعال‌سازی سرویس پس‌زمینه دائمی${colors.reset} (شروع خودکار با ویندوز و بدون پنجره سیاه)`);
-  console.log(` 2. ${colors.red}حذف و غیرفعال‌سازی سرویس پس‌زمینه ویندوز${colors.reset}`);
-  console.log(` 0. بازگشت به منوی اصلی`);
+  console.log(`\n${colors.bright}${colors.cyan}>>> [9] Windows Background Service Manager${colors.reset}\n`);
+  console.log(` 1. ${colors.green}Install & Start Permanent Windows Service${colors.reset} (Auto-starts with Windows)`);
+  console.log(` 2. ${colors.red}Uninstall & Remove Windows Service${colors.reset}`);
+  console.log(` 0. Back to Main Menu`);
 
-  const choice = await ask(`\nانتخاب [1-2]: `);
+  const choice = await ask(`\nSelect option [0-2]: `);
 
   if (choice === '1') {
     try {
       execSync('node windows-service-install.js', { stdio: 'inherit' });
-      console.log(`\n${colors.green}[OK] سرویس ویندوز با موفقیت نصب و اجرا شد.${colors.reset}`);
+      console.log(`\n${colors.green}[OK] Windows Service installed and running in background.${colors.reset}`);
     } catch (e) {
-      console.log(`${colors.yellow}[!] در صورت نیاز، فایل install-windows-service.bat را به صورت Run as Administrator اجرا کنید.${colors.reset}`);
+      console.log(`${colors.yellow}[!] Note: If required, run install-windows-service.bat as Administrator.${colors.reset}`);
     }
   } else if (choice === '2') {
     try {
       execSync('node windows-service-uninstall.js', { stdio: 'inherit' });
-      console.log(`\n${colors.green}[OK] سرویس ویندوز با موفقیت حذف شد.${colors.reset}`);
+      console.log(`\n${colors.green}[OK] Windows Service uninstalled successfully.${colors.reset}`);
     } catch (e) {
-      console.log(`${colors.yellow}[!] در صورت نیاز، فایل uninstall-windows-service.bat را به صورت Run as Administrator اجرا کنید.${colors.reset}`);
+      console.log(`${colors.yellow}[!] Note: If required, run uninstall-windows-service.bat as Administrator.${colors.reset}`);
     }
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 // 10. Uninstall
 async function uninstallBot() {
   showBanner();
-  console.log(`\n${colors.bright}${colors.red}>>> [10] حذف کامل برنامه و سرویس‌ها (Uninstall Bot)${colors.reset}\n`);
-  const confirm = await ask(`${colors.red}آیا مطمئن هستید که می‌خواهید برنامه را از این سیستم به طور کامل حذف کنید؟ (y/n) [n]: ${colors.reset}`);
+  console.log(`\n${colors.bright}${colors.red}>>> [10] Uninstall Bot & Services${colors.reset}\n`);
+  const confirm = await ask(`${colors.red}Are you sure you want to stop and remove all services on this system? (y/n) [n]: ${colors.reset}`);
 
   if (confirm.toLowerCase() === 'y' || confirm.toLowerCase() === 'yes') {
-    console.log(`در حال متوقف کردن و حذف سرویس‌های ویندوز...`);
+    console.log(`Stopping and uninstalling Windows background service...`);
     try {
       execSync('node windows-service-uninstall.js', { stdio: 'inherit' });
     } catch (e) {}
@@ -610,20 +629,23 @@ async function uninstallBot() {
     const env = loadEnv();
     const port = env.PORT || '3000';
     try {
-      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { stdio: 'ignore', shell: true });
+      execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { 
+        stdio: 'ignore', 
+        shell: 'cmd.exe' 
+      });
     } catch (e) {}
 
-    console.log(`${colors.green}سرویس‌ها متوقف و حذف شدند.${colors.reset}`);
-    console.log(`💡 برای پاکسازی نهایی کافی است پوشه برنامه را حذف کنید.`);
+    console.log(`${colors.green}[OK] Services stopped and removed.${colors.reset}`);
+    console.log(`To delete completely, remove this folder.`);
   } else {
-    console.log(`عملیات لغو شد.`);
+    console.log(`Operation canceled.`);
   }
 
-  await ask(`\nبرای بازگشت به منو Enter بزنید...`);
+  await ask(`\nPress [Enter] to return to the Main Menu...`);
 }
 
 function startInteractiveProcess(port) {
-  console.log(`\nدر حال راه‌اندازی سرور به صورت مستقیم در همین پنجره...`);
+  console.log(`\nStarting server in interactive terminal mode...`);
   const distServer = path.join(process.cwd(), 'dist', 'server.cjs');
   if (process.platform === 'win32') {
     execSync(`start "" "http://localhost:${port}"`);
@@ -631,7 +653,10 @@ function startInteractiveProcess(port) {
   if (fs.existsSync(distServer)) {
     require(distServer);
   } else {
-    spawn('npx', ['tsx', 'server.ts'], { stdio: 'inherit', shell: true });
+    spawn('npx', ['tsx', 'server.ts'], { 
+      stdio: 'inherit', 
+      shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
+    });
   }
 }
 
@@ -641,19 +666,19 @@ async function main() {
     showBanner();
     await showHeaderStatus();
 
-    console.log(` ${colors.green}1)${colors.reset} 🚀 نصب و راه‌اندازی کامل (Full Install / Reinstall from GitHub)`);
-    console.log(` ${colors.green}2)${colors.reset} 🔄 بروزرسانی سریع از گیت‌هاب (Update Bot from GitHub)`);
-    console.log(` ${colors.green}3)${colors.reset} 🌐 تنظیم یا تغییر آدرس مخزن گیت‌هاب (Set/Change GitHub Repo URL)`);
-    console.log(` ${colors.green}4)${colors.reset} ⚡ راه‌اندازی مجدد سرویس و وب‌پنل (Restart Service)`);
-    console.log(` ${colors.green}5)${colors.reset} 🛑 توقف سرویس و خاموش کردن برنامه (Stop Service)`);
-    console.log(` ${colors.cyan}6)${colors.reset} 📊 بررسی وضعیت و سلامت سیستم (Check Service & System Status)`);
-    console.log(` ${colors.cyan}7)${colors.reset} 📜 مشاهده لاگ‌های زنده (View Live Logs)`);
-    console.log(` ${colors.yellow}8)${colors.reset} ⚙️ تغییر پورت، پروکسی ضد فیلتر و تنظیمات .env`);
-    console.log(` ${colors.yellow}9)${colors.reset} 🛡️ مدیریت سرویس پس‌زمینه خودکار ویندوز (Windows Service Manager)`);
-    console.log(` ${colors.red}10)${colors.reset} 🗑️ حذف کامل برنامه و سرویس‌ها (Uninstall Bot)`);
-    console.log(` ${colors.magenta}0)${colors.reset} 🚪 خروج (Exit)\n`);
+    console.log(` ${colors.green}1)${colors.reset}  🚀 Full Install / Reinstall from GitHub`);
+    console.log(` ${colors.green}2)${colors.reset}  🔄 Update Bot to Latest GitHub Version`);
+    console.log(` ${colors.green}3)${colors.reset}  🌐 Change GitHub Repository URL`);
+    console.log(` ${colors.green}4)${colors.reset}  ⚡ Restart Bot Service & Web Panel`);
+    console.log(` ${colors.green}5)${colors.reset}  🛑 Stop Bot Service`);
+    console.log(` ${colors.cyan}6)${colors.reset}  📊 Check Service Status & Diagnostics`);
+    console.log(` ${colors.cyan}7)${colors.reset}  📜 View System Live Logs`);
+    console.log(` ${colors.yellow}8)${colors.reset}  ⚙️ Configure Port, Proxy & Bot Token (.env)`);
+    console.log(` ${colors.yellow}9)${colors.reset}  🛡️ Windows Auto-Start Background Service Manager`);
+    console.log(` ${colors.red}10)${colors.reset} 🗑️ Uninstall Bot & Clean up`);
+    console.log(` ${colors.magenta}0)${colors.reset}  🚪 Exit\n`);
 
-    const choice = await ask(`گزینه مورد نظر خود را وارد کنید [0-10]: `);
+    const choice = await ask(`Please select an option [0-10]: `);
 
     switch (choice) {
       case '1':
@@ -687,10 +712,12 @@ async function main() {
         await uninstallBot();
         break;
       case '0':
-        console.log(`\nخروج از سامانه مدیریت. روز خوبی داشته باشید!\n`);
+      case 'exit':
+      case 'q':
+        console.log(`\nExiting Management Console. Have a great day!\n`);
         process.exit(0);
       default:
-        console.log(`\n${colors.red}گزینه نامعتبر است. لطفاً عددی بین 0 تا 10 انتخاب کنید.${colors.reset}`);
+        console.log(`\n${colors.red}Invalid option! Please enter a number between 0 and 10.${colors.reset}`);
         await new Promise((r) => setTimeout(r, 1200));
         break;
     }
@@ -698,6 +725,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Fatal error in PC menu manager:', err);
+  console.error('Fatal error in PC management console:', err);
   process.exit(1);
 });
