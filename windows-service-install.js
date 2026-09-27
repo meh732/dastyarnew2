@@ -12,14 +12,13 @@ try {
   Service = require('node-windows').Service;
 }
 
-const targetScript = fs.existsSync(path.join(__dirname, 'dist', 'server.cjs'))
-  ? path.join(__dirname, 'dist', 'server.cjs')
-  : path.join(__dirname, 'server.ts');
+const targetScript = path.join(__dirname, 'service-runner.js');
 
 const svc = new Service({
   name: 'TelegramInventoryBot',
   description: 'Telegram Inventory Bot Background Windows Service',
   script: targetScript,
+  workingDirectory: __dirname,
   nodeOptions: [
     '--harmony',
     '--max_old_space_size=512'

@@ -3874,6 +3874,7 @@ app.get("/api/system/download-scripts-zip", (req, res) => {
       "run-hidden.vbs",
       "windows-service-install.js",
       "windows-service-uninstall.js",
+      "service-runner.js",
       "setup.js",
       "install.sh",
       ".env.example"

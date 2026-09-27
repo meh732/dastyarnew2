@@ -69,6 +69,7 @@ try {
   if (fs.existsSync('run-hidden.vbs')) zip.addLocalFile('run-hidden.vbs');
   if (fs.existsSync('windows-service-install.js')) zip.addLocalFile('windows-service-install.js');
   if (fs.existsSync('windows-service-uninstall.js')) zip.addLocalFile('windows-service-uninstall.js');
+  if (fs.existsSync('service-runner.js')) zip.addLocalFile('service-runner.js');
 
   // Write temporary ZIP
   zip.writeZip(tempZipPath);

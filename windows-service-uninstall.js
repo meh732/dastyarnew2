@@ -11,13 +11,12 @@ try {
   Service = require('node-windows').Service;
 }
 
-const targetScript = fs.existsSync(path.join(__dirname, 'dist', 'server.cjs'))
-  ? path.join(__dirname, 'dist', 'server.cjs')
-  : path.join(__dirname, 'server.ts');
+const targetScript = path.join(__dirname, 'service-runner.js');
 
 const svc = new Service({
   name: 'TelegramInventoryBot',
-  script: targetScript
+  script: targetScript,
+  workingDirectory: __dirname
 });
 
 svc.on('uninstall', function() {
