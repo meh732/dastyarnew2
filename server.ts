@@ -3733,31 +3733,45 @@ app.post("/api/system/git-update", (req, res) => {
 
   addLog("شروع فرآیند بروزرسانی از مخزن گیت‌هاب...");
 
-  const repoUrl = (req.body?.repoUrl || process.env.GITHUB_REPO_URL || "https://github.com/meh732/-.git").trim();
-  addLog(`مخزن هدف: ${repoUrl}`);
+  const repoUrl = (req.body?.repoUrl || process.env.GITHUB_REPO_URL || "https://github.com/meh732/dastyarnew2.git").trim();
+  addLog(`Target Repository: ${repoUrl}`);
+
+  const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
 
   try {
-    // 1. Git pull
-    if (fs.existsSync(path.join(process.cwd(), ".git"))) {
-      addLog("دریافت آخرین کدهای ثبت شده از Git...");
+    // 1. Git setup & pull
+    if (!fs.existsSync(path.join(process.cwd(), ".git"))) {
+      addLog("Local .git directory not found. Initializing git repository...");
+      try {
+        execSync("git init", { stdio: ["pipe", "pipe", "ignore"] });
+        execSync(`git remote add origin "${repoUrl}"`, { stdio: ["pipe", "pipe", "ignore"] });
+        execSync("git fetch --all", { stdio: ["pipe", "pipe", "ignore"] });
+        execSync("git reset --hard origin/main || git reset --hard origin/master || git pull origin main --allow-unrelated-histories", {
+          stdio: ["pipe", "pipe", "ignore"],
+          shell
+        });
+        addLog("Git repository initialized and synced with GitHub.");
+      } catch (initErr: any) {
+        addLog(`Note: Git sync handled (${initErr.message})`);
+      }
+    } else {
+      addLog("Fetching latest commits from Git...");
       try {
         execSync(`git remote set-url origin "${repoUrl}"`, { stdio: ["pipe", "pipe", "ignore"] });
       } catch (e) {}
 
       try {
-        const pullOutput = execSync("git pull origin main || git pull origin master || git pull", { encoding: "utf8", shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' });
-        addLog(`نتیجه دریافت: ${pullOutput.trim()}`);
+        const pullOutput = execSync("git pull origin main || git pull origin master || git pull", { encoding: "utf8", shell });
+        addLog(`Pull result: ${pullOutput.trim()}`);
       } catch (pullErr: any) {
-        addLog(`هشدار pull: ${pullErr.message}. تلاش با git fetch...`);
+        addLog(`Pull warning: ${pullErr.message}. Syncing with git fetch & reset...`);
         try {
-          execSync("git fetch --all && (git reset --hard origin/main || git reset --hard origin/master)", { stdio: ["pipe", "pipe", "ignore"], shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' });
-          addLog("هماهنگ‌سازی با آخرین کامیت گیت‌هاب انجام شد.");
+          execSync("git fetch --all && (git reset --hard origin/main || git reset --hard origin/master)", { stdio: ["pipe", "pipe", "ignore"], shell });
+          addLog("Synchronized to latest remote commit.");
         } catch (resetErr: any) {
-          addLog(`نکته: بروزرسانی سورس با فایل‌های فعلی ادامه می‌یابد (${resetErr.message})`);
+          addLog(`Note: Proceeding with current source (${resetErr.message})`);
         }
       }
-    } else {
-      addLog("محیط پوشه .git مستقل نیست؛ بروزرسانی بسته‌ها و کامپایل مجدد آغاز شد.");
     }
 
     // 2. Build assets

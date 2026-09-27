@@ -30,7 +30,7 @@ const colors = {
   bgGreen: '\x1b[42m',
 };
 
-const DEFAULT_REPO = 'https://github.com/meh732/-.git';
+const DEFAULT_REPO = 'https://github.com/meh732/dastyarnew2.git';
 
 function createRl() {
   return readline.createInterface({
@@ -80,7 +80,11 @@ function saveEnv(data) {
     currentContent = fs.readFileSync(envPath, 'utf8');
   }
 
-  const keys = Object.keys(data);
+  // Do not write NODE_ENV to .env to prevent Vite warning
+  const cleanData = { ...data };
+  delete cleanData.NODE_ENV;
+
+  const keys = Object.keys(cleanData);
   const updatedLines = [];
   const handledKeys = new Set();
 
@@ -95,8 +99,12 @@ function saveEnv(data) {
       const eqIdx = trimmed.indexOf('=');
       if (eqIdx !== -1) {
         const key = trimmed.slice(0, eqIdx).trim();
-        if (key in data) {
-          updatedLines.push(`${key}=${data[key]}`);
+        if (key === 'NODE_ENV') {
+          // Skip writing NODE_ENV to .env so Vite doesn't complain
+          continue;
+        }
+        if (key in cleanData) {
+          updatedLines.push(`${key}=${cleanData[key]}`);
           handledKeys.add(key);
         } else {
           updatedLines.push(line);
@@ -109,7 +117,7 @@ function saveEnv(data) {
 
   for (const key of keys) {
     if (!handledKeys.has(key)) {
-      updatedLines.push(`${key}=${data[key]}`);
+      updatedLines.push(`${key}=${cleanData[key]}`);
     }
   }
 
@@ -135,7 +143,9 @@ function setGitRepoUrl(url) {
   if (!cleanUrl) return;
   saveEnv({ GITHUB_REPO_URL: cleanUrl });
   try {
-    execSync(`git remote set-url origin "${cleanUrl}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
+    if (fs.existsSync(path.join(process.cwd(), '.git'))) {
+      execSync(`git remote set-url origin "${cleanUrl}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
+    }
   } catch (e) {
     try {
       execSync(`git remote add origin "${cleanUrl}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
@@ -145,12 +155,45 @@ function setGitRepoUrl(url) {
   }
 }
 
+function ensureGitRepo(repoUrl) {
+  const isGit = fs.existsSync(path.join(process.cwd(), '.git'));
+  const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+
+  if (!isGit) {
+    console.log(`[*] Initializing local git repository...`);
+    try {
+      execSync('git init', { stdio: 'inherit' });
+      execSync(`git remote add origin "${repoUrl}"`, { stdio: 'inherit' });
+      console.log(`[*] Fetching repository from GitHub...`);
+      execSync('git fetch --all', { stdio: 'inherit' });
+      execSync('git reset --hard origin/main || git reset --hard origin/master || git pull origin main || git pull origin master --allow-unrelated-histories', {
+        stdio: 'inherit',
+        shell
+      });
+      console.log(`${colors.green}[OK] Local git repository initialized and synchronized.${colors.reset}`);
+      return true;
+    } catch (e) {
+      console.log(`${colors.yellow}[!] Note during git setup: ${e.message}${colors.reset}`);
+      return false;
+    }
+  } else {
+    try {
+      execSync(`git remote set-url origin "${repoUrl}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
+    } catch (e) {
+      try {
+        execSync(`git remote add origin "${repoUrl}"`, { stdio: ['pipe', 'pipe', 'ignore'] });
+      } catch (err) {}
+    }
+    return true;
+  }
+}
+
 function getGitCommitInfo() {
   try {
     const hash = execSync('git log -1 --format="%h - %s (%cr)"', { stdio: ['pipe', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
-    return hash || 'No git commit history';
+    return hash || 'Latest version';
   } catch (e) {
-    return 'Git repository not found or git not available';
+    return 'Production build';
   }
 }
 
@@ -242,24 +285,19 @@ async function fullInstall() {
   setGitRepoUrl(finalRepo);
 
   console.log(`\n${colors.blue}[1/4] Fetching latest source code from GitHub...${colors.reset}`);
-  try {
-    if (fs.existsSync(path.join(process.cwd(), '.git'))) {
-      try {
-        execSync(`git remote set-url origin "${finalRepo}"`, { stdio: 'inherit' });
-        execSync('git fetch --all', { stdio: 'inherit' });
-        execSync('git reset --hard origin/main || git reset --hard origin/master || git pull', { 
-          stdio: 'inherit', 
-          shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
-        });
-        console.log(`${colors.green}[OK] Source code synced with GitHub successfully.${colors.reset}`);
-      } catch (ge) {
-        console.log(`${colors.yellow}[!] Git sync note: ${ge.message}. Continuing with local files...${colors.reset}`);
-      }
-    } else {
-      console.log(`[INFO] .git directory not found. Proceeding with current folder.`);
+  ensureGitRepo(finalRepo);
+
+  if (fs.existsSync(path.join(process.cwd(), '.git'))) {
+    try {
+      execSync('git fetch --all', { stdio: 'inherit' });
+      execSync('git reset --hard origin/main || git reset --hard origin/master || git pull', { 
+        stdio: 'inherit', 
+        shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
+      });
+      console.log(`${colors.green}[OK] Source code synced with GitHub successfully.${colors.reset}`);
+    } catch (ge) {
+      console.log(`${colors.yellow}[!] Git sync note: ${ge.message}. Continuing with local files...${colors.reset}`);
     }
-  } catch (e) {
-    console.log(`${colors.yellow}[!] Git verification completed.${colors.reset}`);
   }
 
   // Install dependencies
@@ -325,16 +363,11 @@ async function updateFromGithub() {
   setGitRepoUrl(repoToUse);
 
   console.log(`\n${colors.blue}[1/3] Pulling latest commits from GitHub...${colors.reset}`);
+  ensureGitRepo(repoToUse);
+
   try {
-    try {
-      execSync(`git remote set-url origin "${repoToUse}"`, { stdio: 'inherit' });
-    } catch (e) {
-      try {
-        execSync(`git remote add origin "${repoToUse}"`, { stdio: 'inherit' });
-      } catch (err) {}
-    }
     execSync('git fetch --all', { stdio: 'inherit' });
-    execSync('git pull origin main || git pull origin master || git pull', { 
+    execSync('git reset --hard origin/main || git reset --hard origin/master || git pull origin main || git pull origin master', { 
       stdio: 'inherit', 
       shell: process.platform === 'win32' ? 'cmd.exe' : '/bin/sh' 
     });
@@ -392,6 +425,7 @@ async function changeGitRepo() {
 
   if (newUrl) {
     setGitRepoUrl(newUrl);
+    ensureGitRepo(newUrl);
     console.log(`\n${colors.green}[OK] GitHub Repository URL updated to ${newUrl} and saved in .env.${colors.reset}`);
   } else {
     console.log(`\n${colors.yellow}No changes made.${colors.reset}`);
@@ -572,7 +606,6 @@ async function configureEnvironmentInteractive() {
     PROXY_URL: chosenProxy,
     BOT_TOKEN: chosenToken,
     ADMIN_ID: chosenAdmin,
-    NODE_ENV: 'production',
   });
 
   console.log(`\n${colors.green}[OK] Configuration saved to .env successfully.${colors.reset}`);
