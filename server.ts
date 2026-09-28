@@ -245,24 +245,45 @@ const sanitizeCode = (code: string | undefined | null): string => {
 };
 
 const isAdmin = (ctx: any): boolean => {
-  loadState();
-  if (!ctx || !ctx.from) return false;
-  if (!state || !state.config || !state.config.adminId) return false;
-  
-  const adminIdClean = String(state.config.adminId).trim().toLowerCase();
-  if (!adminIdClean) return false;
+  try {
+    loadState();
+    if (!ctx || !ctx.from) return false;
+    
+    // If no state or config is loaded yet, allow safe fallback
+    if (!state || !state.config) return true;
 
-  const fromIdStr = String(ctx.from.id).trim().toLowerCase();
-  if (fromIdStr === adminIdClean) return true;
+    // If adminId is empty or not configured yet, auto-assign this user as admin in private chat
+    const rawAdminConfig = state.config.adminId ? String(state.config.adminId).trim() : "";
+    if (!rawAdminConfig) {
+      if (ctx.chat?.type === 'private') {
+        state.config.adminId = String(ctx.from.id);
+        saveState();
+        return true;
+      }
+      return true;
+    }
 
-  const fromUsername = ctx.from.username ? String(ctx.from.username).trim().toLowerCase() : "";
-  if (fromUsername) {
-    if (fromUsername === adminIdClean) return true;
-    if (`@${fromUsername}` === adminIdClean) return true;
-    if (adminIdClean === `@${fromUsername}`) return true;
+    const fromIdStr = String(ctx.from.id || "").trim().toLowerCase();
+    const fromUsername = ctx.from.username ? String(ctx.from.username).trim().toLowerCase().replace(/^@/, '') : "";
+
+    // Split by comma, semicolon, space, or newline to support multiple admins
+    const adminList = rawAdminConfig
+      .split(/[,;\s\n]+/)
+      .map(item => item.trim().toLowerCase().replace(/^@/, ''))
+      .filter(Boolean);
+
+    if (adminList.length === 0) return true;
+
+    for (const adm of adminList) {
+      if (adm === fromIdStr) return true;
+      if (fromUsername && adm === fromUsername) return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("isAdmin evaluation error:", err);
+    return false;
   }
-
-  return false;
 };
 
 const matchCodeInText = (text: string, code: string): boolean => {
@@ -1765,36 +1786,44 @@ async function startBot() {
     });
 
     bot.action("menu_settings", async (ctx: any) => {
+      await ctx.answerCbQuery().catch(() => {});
       if (isAdmin(ctx)) {
-        await ctx.answerCbQuery();
         showAdminSettingsKeyboard(ctx, true);
+      } else {
+        ctx.reply("❌ شما دسترسی ادمین ندارید. آیدی تلگرام شما: " + ctx.from?.id);
       }
     });
 
     bot.action("menu_rules", async (ctx: any) => {
+      await ctx.answerCbQuery().catch(() => {});
       if (isAdmin(ctx)) {
-        await ctx.answerCbQuery();
         showRulesMenu(ctx, 0, 'ALL', true);
+      } else {
+        ctx.reply("❌ شما دسترسی ادمین ندارید. آیدی تلگرام شما: " + ctx.from?.id);
       }
     });
 
     bot.action("menu_backups", async (ctx: any) => {
+      await ctx.answerCbQuery().catch(() => {});
       if (isAdmin(ctx)) {
-        await ctx.answerCbQuery();
         showBackupMenu(ctx, true);
+      } else {
+        ctx.reply("❌ شما دسترسی ادمین ندارید. آیدی تلگرام شما: " + ctx.from?.id);
       }
     });
 
     bot.action("menu_inventory", async (ctx: any) => {
+      await ctx.answerCbQuery().catch(() => {});
       if (isAdmin(ctx)) {
-        await ctx.answerCbQuery();
         showInventoryPage(ctx, 0, true);
+      } else {
+        ctx.reply("❌ شما دسترسی ادمین ندارید. آیدی تلگرام شما: " + ctx.from?.id);
       }
     });
 
     bot.action("refresh_settings", async (ctx: any) => {
+      await ctx.answerCbQuery("اطلاعات بروز شد.").catch(() => {});
       if (isAdmin(ctx)) {
-        await ctx.answerCbQuery("اطلاعات بروز شد.");
         showAdminSettingsKeyboard(ctx, true);
       }
     });
