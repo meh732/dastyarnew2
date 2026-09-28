@@ -1398,103 +1398,140 @@ async function startBot() {
 
     // Helper to render Rules Menu with Glass Buttons
     const showRulesMenu = async (ctx: any, page = 0, filter: 'ALL' | 'ALWAYS_NOTIFY' | 'NEVER_NOTIFY' = 'ALL', isEdit = false) => {
-      loadState();
-      const allRules = state.config.userRules || [];
-      const vipCount = allRules.filter(r => r.action === 'ALWAYS_NOTIFY').length;
-      const blockedCount = allRules.filter(r => r.action === 'NEVER_NOTIFY').length;
+      try {
+        loadState();
+        if (!state.config.userRules) {
+          state.config.userRules = [];
+        }
 
-      const filtered = allRules.filter(r => {
-        if (filter === 'ALL') return true;
-        return r.action === filter;
-      });
-
-      const itemsPerPage = 5;
-      const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-      const safePage = Math.max(0, Math.min(page, totalPages - 1));
-      const pageItems = filtered.slice(safePage * itemsPerPage, (safePage + 1) * itemsPerPage);
-
-      let msg = `👥 <b>مدیریت و فیلتر هوشمند اشخاص خاص (سلف‌بات و ربات):</b>\n\n`;
-      msg += `📊 <b>آمار اشخاص:</b> کل: <b>${allRules.length}</b> | 🌟 ویژه (VIP): <b>${vipCount}</b> | 🚫 بلاک: <b>${blockedCount}</b>\n`;
-      msg += `🔍 <b>فیلتر فعلی:</b> ${filter === 'ALL' ? 'همه اشخاص' : filter === 'ALWAYS_NOTIFY' ? '🌟 فقط VIP' : '🚫 فقط بلاک‌شده'}\n\n`;
-
-      if (filtered.length === 0) {
-        msg += `<i>هیچ قانونی در این لیست وجود ندارد.</i>\n\nبرای تعریف شخص جدید روی دکمه «➕ افزودن شخص خاص جدید» بزنید.`;
-      } else {
-        pageItems.forEach((r, idx) => {
-          const itemNum = safePage * itemsPerPage + idx + 1;
-          const isVip = r.action === 'ALWAYS_NOTIFY';
-          const actionText = isVip ? '🌟 VIP (اطلاع‌رسانی اجباری)' : '🚫 بلاک‌لیست (نادیده‌گیری کامل)';
-          const statusText = r.enabled !== false ? '🟢 فعال' : '⚪ غیرفعال';
-          msg += `<b>${itemNum}.</b> <code>${escapeHtml(r.target)}</code> ${r.name ? `(${escapeHtml(r.name)})` : ''}\n`;
-          msg += `   ⚙️ <b>نوع:</b> ${actionText}\n`;
-          msg += `   📊 <b>وضعیت:</b> ${statusText}\n\n`;
+        // Sanitize and ensure every rule has a valid ID
+        state.config.userRules.forEach((r, index) => {
+          if (!r.id) {
+            r.id = `rule_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`;
+          }
         });
-      }
+        saveState();
 
-      const buttons: any[][] = [];
+        const allRules = state.config.userRules;
+        const vipCount = allRules.filter(r => r.action === 'ALWAYS_NOTIFY').length;
+        const blockedCount = allRules.filter(r => r.action === 'NEVER_NOTIFY').length;
 
-      // Per-item action buttons
-      pageItems.forEach(r => {
-        const isVip = r.action === 'ALWAYS_NOTIFY';
-        const isEnabled = r.enabled !== false;
+        const filtered = allRules.filter(r => {
+          if (filter === 'ALL') return true;
+          return r.action === filter;
+        });
+
+        const itemsPerPage = 5;
+        const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+        const safePage = Math.max(0, Math.min(page, totalPages - 1));
+        const pageItems = filtered.slice(safePage * itemsPerPage, (safePage + 1) * itemsPerPage);
+
+        let msg = `👥 <b>مدیریت و فیلتر هوشمند اشخاص خاص (سلف‌بات و ربات):</b>\n\n`;
+        msg += `📊 <b>آمار اشخاص:</b> کل: <b>${allRules.length}</b> | 🌟 ویژه (VIP): <b>${vipCount}</b> | 🚫 بلاک: <b>${blockedCount}</b>\n`;
+        msg += `🔍 <b>فیلتر فعلی:</b> ${filter === 'ALL' ? 'همه اشخاص' : filter === 'ALWAYS_NOTIFY' ? '🌟 فقط VIP' : '🚫 فقط بلاک‌شده'}\n\n`;
+
+        if (filtered.length === 0) {
+          msg += `<i>هیچ قانونی در این لیست وجود ندارد.</i>\n\nبرای تعریف شخص جدید روی دکمه «➕ افزودن شخص خاص جدید» بزنید.`;
+        } else {
+          pageItems.forEach((r, idx) => {
+            const itemNum = safePage * itemsPerPage + idx + 1;
+            const isVip = r.action === 'ALWAYS_NOTIFY';
+            const actionText = isVip ? '🌟 VIP (اطلاع‌رسانی اجباری)' : '🚫 بلاک‌لیست (نادیده‌گیری کامل)';
+            const statusText = r.enabled !== false ? '🟢 فعال' : '⚪ غیرفعال';
+            const targetEsc = escapeHtml(r.target || 'بدون تارگت');
+            const nameEsc = r.name ? ` (${escapeHtml(r.name)})` : '';
+            msg += `<b>${itemNum}.</b> <code>${targetEsc}</code>${nameEsc}\n`;
+            msg += `   ⚙️ <b>نوع:</b> ${actionText}\n`;
+            msg += `   📊 <b>وضعیت:</b> ${statusText}\n\n`;
+          });
+        }
+
+        const buttons: any[][] = [];
+
+        // Per-item action buttons
+        pageItems.forEach(r => {
+          const isVip = r.action === 'ALWAYS_NOTIFY';
+          const isEnabled = r.enabled !== false;
+          buttons.push([
+            {
+              text: `${isEnabled ? '⏸️ غیرفعال' : '▶️ فعال'}`,
+              callback_data: `rule_toggle_${r.id}`
+            },
+            {
+              text: `${isVip ? '🔄 تغییر به بلاک' : '🔄 تغییر به VIP'}`,
+              callback_data: `rule_switch_${r.id}`
+            },
+            {
+              text: `🗑️ حذف`,
+              callback_data: `rule_del_${r.id}`
+            }
+          ]);
+        });
+
+        // Pagination
+        if (totalPages > 1) {
+          const pagRow = [];
+          if (safePage > 0) {
+            pagRow.push({ text: "◀️ قبلی", callback_data: `rule_page_${safePage - 1}_${filter}` });
+          }
+          pagRow.push({ text: `صفحه ${safePage + 1} از ${totalPages}`, callback_data: "rule_noop" });
+          if (safePage < totalPages - 1) {
+            pagRow.push({ text: "بعدی ▶️", callback_data: `rule_page_${safePage + 1}_${filter}` });
+          }
+          buttons.push(pagRow);
+        }
+
+        // Filter switch row
         buttons.push([
-          {
-            text: `${isEnabled ? '⏸️ غیرفعال' : '▶️ فعال'}`,
-            callback_data: `rule_toggle_${r.id}`,
-            style: isEnabled ? 'primary' : 'success'
-          },
-          {
-            text: `${isVip ? '🔄 تغییر به بلاک' : '🔄 تغییر به VIP'}`,
-            callback_data: `rule_switch_${r.id}`,
-            style: 'primary'
-          },
-          {
-            text: `🗑️ حذف`,
-            callback_data: `rule_del_${r.id}`,
-            style: 'danger'
-          }
+          { text: `${filter === 'ALL' ? '🔘 همه' : 'همه'}`, callback_data: "rule_filter_ALL" },
+          { text: `${filter === 'ALWAYS_NOTIFY' ? '🔘 🌟 فقط VIP' : '🌟 فقط VIP'}`, callback_data: "rule_filter_ALWAYS_NOTIFY" },
+          { text: `${filter === 'NEVER_NOTIFY' ? '🔘 🚫 فقط بلاک' : '🚫 فقط بلاک'}`, callback_data: "rule_filter_NEVER_NOTIFY" }
         ]);
-      });
 
-      // Pagination
-      if (totalPages > 1) {
-        const pagRow = [];
-        if (safePage > 0) {
-          pagRow.push({ text: "◀️ قبلی", callback_data: `rule_page_${safePage - 1}_${filter}`, style: 'primary' });
-        }
-        pagRow.push({ text: `صفحه ${safePage + 1} از ${totalPages}`, callback_data: "rule_noop", style: 'primary' });
-        if (safePage < totalPages - 1) {
-          pagRow.push({ text: "بعدی ▶️", callback_data: `rule_page_${safePage + 1}_${filter}`, style: 'primary' });
-        }
-        buttons.push(pagRow);
-      }
+        // Add New Rule & Back buttons
+        buttons.push([
+          { text: "➕ افزودن شخص خاص جدید", callback_data: "rule_wizard_start" }
+        ]);
+        buttons.push([
+          { text: "⚙️ بازگشت به تنظیمات", callback_data: "menu_settings" },
+          { text: "💾 پشتیبان‌گیری", callback_data: "menu_backups" }
+        ]);
 
-      // Filter switch row
-      buttons.push([
-        { text: `${filter === 'ALL' ? '🔘 همه' : 'همه'}`, callback_data: "rule_filter_ALL", style: filter === 'ALL' ? 'primary' : 'secondary' },
-        { text: `${filter === 'ALWAYS_NOTIFY' ? '🔘 🌟 فقط VIP' : '🌟 فقط VIP'}`, callback_data: "rule_filter_ALWAYS_NOTIFY", style: filter === 'ALWAYS_NOTIFY' ? 'primary' : 'secondary' },
-        { text: `${filter === 'NEVER_NOTIFY' ? '🔘 🚫 فقط بلاک' : '🚫 فقط بلاک'}`, callback_data: "rule_filter_NEVER_NOTIFY", style: filter === 'NEVER_NOTIFY' ? 'primary' : 'secondary' }
-      ]);
-
-      // Add New Rule & Back buttons
-      buttons.push([
-        { text: "➕ افزودن شخص خاص جدید", callback_data: "rule_wizard_start", style: "success" }
-      ]);
-      buttons.push([
-        { text: "⚙️ بازگشت به تنظیمات", callback_data: "menu_settings", style: "primary" },
-        { text: "💾 پشتیبان‌گیری", callback_data: "menu_backups", style: "primary" }
-      ]);
-
-      if (isEdit) {
-        try {
-          return await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
-        } catch (e: any) {
-          if (!e.message?.includes('message is not modified')) {
-            return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+        if (isEdit && typeof ctx.editMessageText === 'function') {
+          try {
+            return await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+          } catch (e: any) {
+            if (e.message?.includes('message is not modified')) {
+              return;
+            }
+            // Fallback to sending new message if edit fails
+            try {
+              return await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+            } catch (e2) {
+              const plainMsg = msg.replace(/<[^>]+>/g, '');
+              return await ctx.reply(plainMsg, { reply_markup: { inline_keyboard: buttons } });
+            }
+          }
+        } else {
+          try {
+            return await ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+          } catch (e: any) {
+            const plainMsg = msg.replace(/<[^>]+>/g, '');
+            return await ctx.reply(plainMsg, { reply_markup: { inline_keyboard: buttons } });
           }
         }
-      } else {
-        return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
+      } catch (err) {
+        console.error("showRulesMenu error:", err);
+        try {
+          await ctx.reply("👥 لیست اشخاص و قوانین مدیریت:\n\nبرای تعریف شخص جدید روی دکمه زیر کلیک کنید:", {
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "➕ افزودن شخص خاص جدید", callback_data: "rule_wizard_start" }],
+                [{ text: "⚙️ بازگشت به تنظیمات", callback_data: "menu_settings" }]
+              ]
+            }
+          });
+        } catch (e) {}
       }
     };
 
