@@ -204,10 +204,18 @@ const normalizePersianArabicNumbers = (str: string | undefined | null): string =
 const normalizeLettersAndNumbers = (str: string | undefined | null): string => {
   if (!str) return "";
   
-  // 1. Normalize Persian/Arabic numbers to English
+  // 1. Normalize Persian/Arabic numbers to English (۰-۹ -> 0-9)
   let res = normalizePersianArabicNumbers(str).toLowerCase();
   
-  // 2. Normalize common Persian phonetic spellings of English letters (do this first to match multi-char sequences)
+  // 2. Normalize Arabic letter variants to Persian/English standard
+  res = res
+    .replace(/ك/g, 'ک')
+    .replace(/[يى]/g, 'ی')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/[إأآء]/g, 'ا');
+
+  // 3. Normalize common Persian phonetic spellings of English letters (in code tokens like 2جی -> 2j)
   res = res
     .replace(/ایکس/g, 'x')
     .replace(/اچ/g, 'h')
@@ -224,39 +232,7 @@ const normalizeLettersAndNumbers = (str: string | undefined | null): string => {
     .replace(/ار/g, 'r')
     .replace(/اس/g, 's');
 
-  // 3. Normalize single interchangeable Persian letters to English (both phonetic and layout-based)
-  res = res
-    .replace(/پ/g, 'p')
-    .replace(/ک/g, 'k')
-    .replace(/ی/g, 'y')
-    .replace(/م/g, 'm')
-    .replace(/ه/g, 'h')
-    .replace(/د/g, 'd')
-    .replace(/ت/g, 't')
-    .replace(/ن/g, 'n')
-    .replace(/ب/g, 'b')
-    .replace(/ج/g, 'j')
-    .replace(/س/g, 's')
-    .replace(/ر/g, 'r')
-    .replace(/ل/g, 'l')
-    .replace(/و/g, 'v')
-    .replace(/چ/g, 'ch')
-    .replace(/ف/g, 'f')
-    .replace(/ق/g, 'q')
-    .replace(/گ/g, 'g')
-    .replace(/ص/g, 'w')
-    .replace(/ث/g, 'e')
-    .replace(/غ/g, 'g')
-    .replace(/ع/g, 'u')
-    .replace(/خ/g, 'o') // physically 'o' is very common
-    .replace(/ح/g, 'p') // physically 'p' is very common
-    .replace(/ش/g, 'a') // physically 'a' is very common
-    .replace(/ظ/g, 'z')
-    .replace(/ط/g, 'x') // physically 'x'
-    .replace(/ز/g, 'z')
-    .replace(/ذ/g, 'b'); // physically 'b'
-
-  // 4. Normalize letter 'o' / 'O' to '0' (zero) since 'o' is never used in auto OEM part numbers
+  // 4. Normalize letter 'o' / 'O' to '0' (zero) for automotive OEM part numbers
   res = res.replace(/o/g, '0');
 
   return res;
@@ -1310,6 +1286,7 @@ async function startBot() {
 
     // Helper to render Settings Keyboard
     const showAdminSettingsKeyboard = async (ctx: any, isEdit = false) => {
+      loadState();
       const isScanOn = state.config.botEnabled !== false;
       const isPmEnabled = !state.config.disableCustomerPm;
       const isUserbotOn = state.config.userbotEnabled !== false && !!state.config.userbotSession;
@@ -1317,20 +1294,20 @@ async function startBot() {
       const rulesCount = (state.config.userRules || []).length;
       const inventoryCount = (state.inventory || []).length;
       
-      let msg = `⚙️ *پنل تنظیمات و پیکربندی ربات مانیتورینگ:*\n\n`;
-      msg += `🤖 *وضعیت اسکن و پایش کدها:* ${isScanOn ? "🟢 *روشن (فعال)*" : "🔴 *خاموش (غیرفعال)*"}\n`;
-      msg += `💬 *ارسال پیام به خریدار در پی‌وی:* ${isPmEnabled ? "🟢 *فعال*" : "🔴 *غیرفعال (فقط اطلاع به ادمین)*"}\n`;
-      msg += `👤 *سلف‌بات (حساب شخصی):* ${isUserbotOn ? "🟢 *متصل و فعال*" : "⚪ *غیرفعال یا متصل‌نشده*"}\n`;
-      msg += `🔒 *حوزه پایش گروه‌ها:* ${isTargetGroupOnly ? "🔒 *فقط گروه هدف*" : "🌐 *همه گروه‌های عضو*"}\n`;
-      msg += `👥 *تعداد قوانین اشخاص (VIP/بلاک):* *${rulesCount} شخص*\n`;
-      msg += `📦 *تعداد اقلام موجود در انبار:* *${inventoryCount} کالا*\n\n`;
+      let msg = `⚙️ <b>پنل تنظیمات و پیکربندی ربات مانیتورینگ:</b>\n\n`;
+      msg += `🤖 <b>وضعیت اسکن و پایش کدها:</b> ${isScanOn ? "🟢 <b>روشن (فعال)</b>" : "🔴 <b>خاموش (غیرفعال)</b>"}\n`;
+      msg += `💬 <b>ارسال پیام به خریدار در پی‌وی:</b> ${isPmEnabled ? "🟢 <b>فعال</b>" : "🔴 <b>غیرفعال (فقط اطلاع به ادمین)</b>"}\n`;
+      msg += `👤 <b>سلف‌بات (حساب شخصی):</b> ${isUserbotOn ? "🟢 <b>متصل و فعال</b>" : "⚪ <b>غیرفعال یا متصل‌نشده</b>"}\n`;
+      msg += `🔒 <b>حوزه پایش گروه‌ها:</b> ${isTargetGroupOnly ? "🔒 <b>فقط گروه هدف</b>" : "🌐 <b>همه گروه‌های عضو</b>"}\n`;
+      msg += `👥 <b>تعداد قوانین اشخاص (VIP/بلاک):</b> <b>${rulesCount} شخص</b>\n`;
+      msg += `📦 <b>تعداد اقلام موجود در انبار:</b> <b>${inventoryCount} کالا</b>\n\n`;
       
       const currentMsg = state.config.customerMessage && state.config.customerMessage.trim() !== ""
         ? state.config.customerMessage
-        : `سلام دوست گرامی، درخواست شما برای خرید کالای «*{name}*» با کد «*{code}*» با موفقیت ثبت شد.\nمدیریت ربات به زودی برای هماهنگی‌های لازم با شما ارتباط می‌گیرد.🌸`;
+        : `سلام دوست گرامی، درخواست شما برای خرید کالای «{name}» با کد «{code}» با موفقیت ثبت شد.\nمدیریت ربات به زودی برای هماهنگی‌های لازم با شما ارتباط می‌گیرد.🌸`;
       
-      msg += `📝 *قالب پیام ارسالی به خریدار:*\n_${currentMsg}_\n\n`;
-      msg += `💡 *جهت تغییر وضعیت‌ها، از دکمه‌های شیشه‌ای زیر استفاده کنید:*`;
+      msg += `📝 <b>قالب پیام ارسالی به خریدار:</b>\n<i>${escapeHtml(currentMsg)}</i>\n\n`;
+      msg += `💡 <b>جهت تغییر وضعیت‌ها، از دکهای شیشه‌ای زیر استفاده کنید:</b>`;
 
       const keyboard = [
         [
@@ -1385,19 +1362,20 @@ async function startBot() {
 
       if (isEdit) {
         try {
-          return await ctx.editMessageText(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } });
+          return await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
         } catch (e: any) {
           if (!e.message?.includes('message is not modified')) {
-            return ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } });
+            return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
           }
         }
       } else {
-        return ctx.replyWithMarkdown(msg, { reply_markup: { inline_keyboard: keyboard } });
+        return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
       }
     };
 
     // Helper to render Rules Menu with Glass Buttons
     const showRulesMenu = async (ctx: any, page = 0, filter: 'ALL' | 'ALWAYS_NOTIFY' | 'NEVER_NOTIFY' = 'ALL', isEdit = false) => {
+      loadState();
       const allRules = state.config.userRules || [];
       const vipCount = allRules.filter(r => r.action === 'ALWAYS_NOTIFY').length;
       const blockedCount = allRules.filter(r => r.action === 'NEVER_NOTIFY').length;
@@ -1412,21 +1390,21 @@ async function startBot() {
       const safePage = Math.max(0, Math.min(page, totalPages - 1));
       const pageItems = filtered.slice(safePage * itemsPerPage, (safePage + 1) * itemsPerPage);
 
-      let msg = `👥 *مدیریت و فیلتر هوشمند اشخاص خاص (سلف‌بات و ربات):*\n\n`;
-      msg += `📊 *آمار اشخاص:* کل: *${allRules.length}* | 🌟 ویژه (VIP): *${vipCount}* | 🚫 بلاک: *${blockedCount}*\n`;
-      msg += `🔍 *فیلتر فعلی:* ${filter === 'ALL' ? 'همه اشخاص' : filter === 'ALWAYS_NOTIFY' ? '🌟 فقط VIP' : '🚫 فقط بلاک‌شده'}\n\n`;
+      let msg = `👥 <b>مدیریت و فیلتر هوشمند اشخاص خاص (سلف‌بات و ربات):</b>\n\n`;
+      msg += `📊 <b>آمار اشخاص:</b> کل: <b>${allRules.length}</b> | 🌟 ویژه (VIP): <b>${vipCount}</b> | 🚫 بلاک: <b>${blockedCount}</b>\n`;
+      msg += `🔍 <b>فیلتر فعلی:</b> ${filter === 'ALL' ? 'همه اشخاص' : filter === 'ALWAYS_NOTIFY' ? '🌟 فقط VIP' : '🚫 فقط بلاک‌شده'}\n\n`;
 
       if (filtered.length === 0) {
-        msg += `_هیچ قانونی در این لیست وجود ندارد._\n\nبرای تعریف شخص جدید روی دکمه «➕ افزودن شخص خاص جدید» بزنید.`;
+        msg += `<i>هیچ قانونی در این لیست وجود ندارد.</i>\n\nبرای تعریف شخص جدید روی دکمه «➕ افزودن شخص خاص جدید» بزنید.`;
       } else {
         pageItems.forEach((r, idx) => {
           const itemNum = safePage * itemsPerPage + idx + 1;
           const isVip = r.action === 'ALWAYS_NOTIFY';
           const actionText = isVip ? '🌟 VIP (اطلاع‌رسانی اجباری)' : '🚫 بلاک‌لیست (نادیده‌گیری کامل)';
           const statusText = r.enabled !== false ? '🟢 فعال' : '⚪ غیرفعال';
-          msg += `*${itemNum}.* \`${r.target}\` ${r.name ? `(${r.name})` : ''}\n`;
-          msg += `   ⚙️ *نوع:* ${actionText}\n`;
-          msg += `   📊 *وضعیت:* ${statusText}\n\n`;
+          msg += `<b>${itemNum}.</b> <code>${escapeHtml(r.target)}</code> ${r.name ? `(${escapeHtml(r.name)})` : ''}\n`;
+          msg += `   ⚙️ <b>نوع:</b> ${actionText}\n`;
+          msg += `   📊 <b>وضعیت:</b> ${statusText}\n\n`;
         });
       }
 
@@ -1486,34 +1464,35 @@ async function startBot() {
 
       if (isEdit) {
         try {
-          return await ctx.editMessageText(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: buttons } });
+          return await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
         } catch (e: any) {
           if (!e.message?.includes('message is not modified')) {
-            return ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: buttons } });
+            return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
           }
         }
       } else {
-        return ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: buttons } });
+        return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: buttons } });
       }
     };
 
     // Helper to render Backup & Restore Menu with Glass Buttons
     const showBackupMenu = async (ctx: any, isEdit = false) => {
+      loadState();
       const invCount = (state.inventory || []).length;
       const rulesCount = (state.config.userRules || []).length;
       const custCount = (state.customers || []).length;
       const groupsCount = (state.groups || []).length;
 
-      let msg = `💾 *مدیریت جامع پشتیبان‌گیری و بازگردانی (Backup & Restore):*\n\n`;
-      msg += `📦 *موجودی انبار:* *${invCount} کالا*\n`;
-      msg += `👥 *قوانین اشخاص (VIP/بلاک):* *${rulesCount} شخص*\n`;
-      msg += `📋 *سوابق تقاضای مشتریان:* *${custCount} مورد*\n`;
-      msg += `👥 *گروه‌های ثبت‌شده:* *${groupsCount} گروه*\n\n`;
-      msg += `✨ *قابلیت‌ها:*\n`;
-      msg += `• *پشتیبان کامل JSON (زمان‌دار):* حاوی ۱۰۰٪ اطلاعات (انبار + اشخاص + کانفیگ + مشتریان) با قابلیت بازگردانی آنی.\n`;
-      msg += `• *پشتیبان اکسل (Excel):* شامل شیت‌های مجزا برای مشاهده در نرم‌افزار اکسل.\n`;
-      msg += `• *بازگردانی (Restore):* کافیست هر زمان فایل پشتیبان \`.json\` یا \`.xlsx\` را مستقیماً همینجا در چت بفرستید تا فوراً بازیابی شود!\n\n`;
-      msg += `👇 *یک گزینه را انتخاب کنید:*`;
+      let msg = `💾 <b>مدیریت جامع پشتیبان‌گیری و بازگردانی (Backup & Restore):</b>\n\n`;
+      msg += `📦 <b>موجودی انبار:</b> <b>${invCount} کالا</b>\n`;
+      msg += `👥 <b>قوانین اشخاص (VIP/بلاک):</b> <b>${rulesCount} شخص</b>\n`;
+      msg += `📋 <b>سوابق تقاضای مشتریان:</b> <b>${custCount} مورد</b>\n`;
+      msg += `👥 <b>گروه‌های ثبت‌شده:</b> <b>${groupsCount} گروه</b>\n\n`;
+      msg += `✨ <b>قابلیت‌ها:</b>\n`;
+      msg += `• <b>پشتیبان کامل JSON (زمان‌دار):</b> حاوی ۱۰۰٪ اطلاعات (انبار + اشخاص + کانفیگ + مشتریان) با قابلیت بازگردانی آنی.\n`;
+      msg += `• <b>پشتیبان اکسل (Excel):</b> شامل شیت‌های مجزا برای مشاهده در نرم‌افزار اکسل.\n`;
+      msg += `• <b>بازگردانی (Restore):</b> کافیست هر زمان فایل پشتیبان <code>.json</code> یا <code>.xlsx</code> را مستقیماً همینجا در چت بفرستید تا فوراً بازیابی شود!\n\n`;
+      msg += `👇 <b>یک گزینه را انتخاب کنید:</b>`;
 
       const keyboard = [
         [
@@ -1533,14 +1512,14 @@ async function startBot() {
 
       if (isEdit) {
         try {
-          return await ctx.editMessageText(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } });
+          return await ctx.editMessageText(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
         } catch (e: any) {
           if (!e.message?.includes('message is not modified')) {
-            return ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } });
+            return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
           }
         }
       } else {
-        return ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } });
+        return ctx.reply(msg, { parse_mode: 'HTML', reply_markup: { inline_keyboard: keyboard } });
       }
     };
 
@@ -2714,6 +2693,50 @@ async function startBot() {
               delete adminSessions[ctx.from.id];
               return;
             }
+          }
+
+          // Direct Dispatchers for Custom Keyboard Buttons
+          if (text.includes("مدیریت اشخاص") || text.includes("VIP") || text.includes("قوانین")) {
+            return showRulesMenu(ctx, 0, 'ALL');
+          }
+          if (text.includes("تنظیمات")) {
+            return showAdminSettingsKeyboard(ctx);
+          }
+          if (text.includes("پشتیبان") || text.includes("بکاپ")) {
+            return showBackupMenu(ctx);
+          }
+          if (text.includes("لیست کالا") || text.includes("کالاهای موجود")) {
+            return showInventoryPage(ctx, 0);
+          }
+          if (text.includes("جستجو")) {
+            adminSessions[ctx.from.id] = { step: 'awaiting_search_query', data: {} };
+            return ctx.reply("🔎 لطفاً کد یا نام کالا را برای جستجو وارد کنید:\n\n(برای انصراف از دکمه زیر استفاده کنید)", {
+              reply_markup: { inline_keyboard: [[{ text: "❌ انصراف", callback_data: "cancel_add_product", style: "danger" }]] }
+            });
+          }
+          if (text.includes("حذف دستی")) {
+            adminSessions[ctx.from.id] = { step: 'awaiting_delete_search', data: {} };
+            return ctx.reply("🗑️ لطفاً نام یا کد کالا را برای حذف ارسال کنید:\n\n(برای انصراف از دکمه زیر استفاده کنید)", {
+              reply_markup: { inline_keyboard: [[{ text: "❌ انصراف", callback_data: "cancel_add_product", style: "danger" }]] }
+            });
+          }
+          if (text.includes("ثبت و ویرایش")) {
+            return ctx.reply(
+              "👇 جهت افزودن یا ویرایش دستی کالا از طریق دکمه زیر اقدام کنید:",
+              Markup.inlineKeyboard([
+                [Markup.button.callback("➕ افزودن/ویرایش کالا", "start_add_product")]
+              ])
+            );
+          }
+          if (text.includes("راهنما")) {
+            return ctx.reply(
+              "💡 راهنمای کامل سیستم پایش هوشمند انبار و اشخاص:\n\n" +
+              "۱. پایش خودکار کالاها: ربات و سلف‌بات پیام‌های گروه‌ها را برای پیدا کردن کد کالاهای انبار اسکن می‌کنند.\n" +
+              "۲. پایش اشخاص خاص (VIP): با ثبت شخص در لیست VIP، تمام پیام‌های او حتی بدون تطابق کد کالا با فوروارد به پی‌وی شما می‌رسد.\n" +
+              "۳. لیست سیاه اشخاص (بلاک): پیام‌های این اشخاص کلاً نادیده گرفته می‌شود.\n" +
+              "۴. پشتیبان‌گیری هوشمند (JSON/Excel): فایل زمان‌دار JSON حاوی تمام انبار و اشخاص را دریافت و با ارسال مجدد فایل در چت، بازگردانی (Restore) کنید.\n" +
+              "۵. پروکسی و اتصال: قابلیت کار با تمام نرم‌افزارهای فیلترشکن و سرورهای مختلف."
+            );
           }
 
           // If admin types a raw text message that doesn't match our custom menu buttons
