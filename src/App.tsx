@@ -177,7 +177,19 @@ export default function App() {
 
   useEffect(() => {
     fetchState();
+    const interval = setInterval(() => {
+      fetchState();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    fetchState();
+    if (activeTab === 'system_manager') {
+      fetchGitStatus();
+      fetchSystemLogs();
+    }
+  }, [activeTab]);
 
   const fetchDialogGroups = async () => {
     setIsLoadingDialogs(true);
@@ -819,13 +831,14 @@ export default function App() {
 
   const handleSaveConfig = async () => {
     try {
+      const { userRules: _ignored, ...configPayload } = config as any;
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(configPayload),
       });
       const data = await res.json();
-      setState(prev => prev ? { ...prev, config, isRunning: data.isRunning } : null);
+      await fetchState();
       showMessage('تنظیمات با موفقیت ذخیره شد!', 'success');
     } catch (err) {
       showMessage('خطا در ذخیره تنظیمات', 'error');

@@ -3203,7 +3203,18 @@ app.get("/api/download-deploy", (req, res) => {
 
 app.post("/api/config", async (req, res) => {
   loadState(true);
+  const currentRules = state.config.userRules || [];
+  const reqUserRules = req.body?.userRules;
+
   state.config = { ...state.config, ...req.body };
+
+  // Safeguard: Do not overwrite existing userRules if req.body did not include userRules or provided empty rules while server had existing rules
+  if (!reqUserRules && currentRules.length > 0) {
+    state.config.userRules = currentRules;
+  } else if (Array.isArray(reqUserRules) && reqUserRules.length === 0 && currentRules.length > 0) {
+    state.config.userRules = currentRules;
+  }
+
   if (state.config.adminId) state.config.adminId = String(state.config.adminId).trim();
   if (state.config.groupId) state.config.groupId = String(state.config.groupId).trim();
   if (state.config.proxyUrl !== undefined) state.config.proxyUrl = String(state.config.proxyUrl).trim();
