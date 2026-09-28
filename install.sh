@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 INSTALL_DIR="/opt/inventory-bot"
 SERVICE_NAME="inventory-bot"
-REPO_URL="https://github.com/meh732/-.git"
+REPO_URL="https://github.com/meh732/dastyarnew2.git"
 
 show_banner() {
     clear
