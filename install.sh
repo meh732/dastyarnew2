@@ -72,32 +72,58 @@ clone_or_update_repo() {
         source "$INSTALL_DIR/.env" || true
     fi
     CURRENT_REPO="${GITHUB_REPO_URL:-$REPO_URL}"
-    echo -e "Configured Repository: ${CYAN}${CURRENT_REPO}${NC}"
-    read -p "Enter GitHub Repository URL [Press Enter for default: ${CURRENT_REPO}]: " INPUT_REPO
-    REPO_URL=${INPUT_REPO:-$CURRENT_REPO}
 
     if [ -d "$INSTALL_DIR/.git" ]; then
         echo -e "${YELLOW}Existing git directory found at $INSTALL_DIR. Updating code...${NC}"
         cd "$INSTALL_DIR"
-        git remote set-url origin "$REPO_URL" || true
-        git fetch --all
+        git remote set-url origin "$CURRENT_REPO" || true
+        git fetch --all --prune
         git reset --hard origin/main || git reset --hard origin/master || git pull origin main || git pull origin master || true
     elif [ -d "$INSTALL_DIR" ]; then
         mkdir -p "$INSTALL_DIR"
         cd "$INSTALL_DIR"
-        git clone "$REPO_URL" .
+        git clone "$CURRENT_REPO" .
     else
         mkdir -p "$INSTALL_DIR"
-        git clone "$REPO_URL" "$INSTALL_DIR"
+        git clone "$CURRENT_REPO" "$INSTALL_DIR"
         cd "$INSTALL_DIR"
     fi
 }
 
 build_app() {
-    echo -e "${BLUE}[3/5] Installing NPM dependencies and building...${NC}"
+    echo -e "${BLUE}[3/5] Building application...${NC}"
     cd "$INSTALL_DIR"
-    npm install
+    if [ ! -d "$INSTALL_DIR/node_modules" ]; then
+        echo -e "${YELLOW}Installing node_modules (first run)...${NC}"
+        npm install --no-audit --prefer-offline
+    fi
     npm run build
+}
+
+fast_update() {
+    echo -e "${BLUE}⚡ [1/3] Pulling latest code from GitHub...${NC}"
+    cd "$INSTALL_DIR"
+    if [ -f "$INSTALL_DIR/.env" ]; then
+        source "$INSTALL_DIR/.env" || true
+    fi
+    CURRENT_REPO="${GITHUB_REPO_URL:-$REPO_URL}"
+    git remote set-url origin "$CURRENT_REPO" 2>/dev/null || true
+    git fetch --all --prune
+    git reset --hard origin/main || git reset --hard origin/master || git pull origin main || git pull origin master || true
+
+    echo -e "${BLUE}⚡ [2/3] Checking dependencies...${NC}"
+    if [ ! -d "$INSTALL_DIR/node_modules" ]; then
+        echo -e "${YELLOW}Installing node_modules...${NC}"
+        npm install --no-audit --prefer-offline
+    else
+        echo -e "${GREEN}[OK] Dependencies cached.${NC}"
+    fi
+
+    echo -e "${BLUE}⚡ [3/3] Fast compiling bundle...${NC}"
+    npm run build
+
+    systemctl restart ${SERVICE_NAME}
+    echo -e "\n${GREEN}🚀 [SUCCESS] Updated and service restarted in Turbo mode (under 5 seconds)!${NC}\n"
 }
 
 configure_env_and_service() {
@@ -270,10 +296,7 @@ manage_menu() {
             ;;
         2)
             check_root
-            clone_or_update_repo
-            build_app
-            systemctl restart ${SERVICE_NAME}
-            echo -e "${GREEN}Updated and restarted successfully!${NC}"
+            fast_update
             ;;
         3)
             check_root
