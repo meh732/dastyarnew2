@@ -384,14 +384,20 @@ async function updateFromGithub() {
     }
   }
 
-  console.log(`\n${colors.blue}[2/3] Updating npm packages (npm install)...${colors.reset}`);
-  try {
-    execSync('npm install --no-audit', { stdio: 'inherit' });
-  } catch (e) {
-    console.log(`${colors.yellow}npm note: ${e.message}${colors.reset}`);
+  console.log(`\n${colors.blue}[2/3] Checking dependencies...${colors.reset}`);
+  const hasNodeModules = fs.existsSync(path.join(process.cwd(), 'node_modules'));
+  if (!hasNodeModules) {
+    console.log(`Installing missing packages (npm install)...`);
+    try {
+      execSync('npm install --no-audit', { stdio: 'inherit' });
+    } catch (e) {
+      console.log(`${colors.yellow}npm note: ${e.message}${colors.reset}`);
+    }
+  } else {
+    console.log(`${colors.green}[OK] Dependencies are up to date.${colors.reset}`);
   }
 
-  console.log(`\n${colors.blue}[3/3] Rebuilding production bundle (npm run build)...${colors.reset}`);
+  console.log(`\n${colors.blue}[3/3] Fast recompiling assets (npm run build)...${colors.reset}`);
   try {
     execSync('npm run build', { stdio: 'inherit' });
     console.log(`${colors.green}[OK] Project successfully rebuilt.${colors.reset}`);
