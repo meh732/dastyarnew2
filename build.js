@@ -28,11 +28,19 @@ if (isCpanel || !hasVite) {
 }
 
 try {
-  console.log('⚡ Building Client with Vite...');
-  execSync('vite build', { stdio: 'inherit' });
+  const args = process.argv.slice(2);
+  const clientExists = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
+  const forceClient = args.includes('--client') || args.includes('--all') || process.env.BUILD_CLIENT === 'true' || !clientExists;
 
-  console.log('⚡ Bundling Server with esbuild...');
-  execSync('esbuild server.ts --bundle --platform=node --format=cjs --external:vite --sourcemap --outfile=dist/server.cjs', { stdio: 'inherit' });
+  if (forceClient) {
+    console.log('⚡ Building Client UI with Vite...');
+    execSync('npx vite build', { stdio: 'inherit' });
+  } else {
+    console.log('⚡ Client UI already pre-compiled (skipping slow Vite build).');
+  }
+
+  console.log('⚡ Bundling Server with esbuild (instant 0.2s)...');
+  execSync('npx esbuild server.ts --bundle --platform=node --format=cjs --external:vite --sourcemap --outfile=dist/server.cjs', { stdio: 'inherit' });
 
   // Only create cpanel-deploy.zip if explicitly requested or in AI Studio environment
   const isAiStudio = !!process.env.AIS_DEV_SERVER_PORT || !!process.env.GEMINI_API_KEY || process.env.CREATE_ZIP === 'true';
