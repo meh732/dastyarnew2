@@ -523,7 +523,6 @@ function loadState(force = false) {
       if (fs.existsSync(filePath)) {
         const raw = fs.readFileSync(filePath, "utf-8");
         if (!raw || raw.trim() === "") {
-          console.warn(`[State Load] File ${filePath} is empty, skipping.`);
           return false;
         }
         const saved = JSON.parse(raw);
@@ -556,8 +555,7 @@ function loadState(force = false) {
 
             // Save back to safe storage path if we migrated or loaded from backup
             if (filePath !== DATA_FILE) {
-              console.log(`[State Load] Successfully migrated/restored state from ${filePath} to safe path: ${DATA_FILE}`);
-              // Use direct write to initialize the main file safely
+              console.log(`[State Load] Migrated/restored state from ${filePath} to safe path: ${DATA_FILE}`);
               fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf-8");
             }
             return true;
@@ -565,27 +563,46 @@ function loadState(force = false) {
         }
       }
     } catch (e) {
-      console.error(`[State Load] Error reading or parsing state file ${filePath}:`, e);
+      // Ignore reading errors gracefully on fallback checks
     }
     return false;
   };
 
-  // 1. Try primary file
-  loadedSuccessfully = tryLoadFromFile(DATA_FILE);
+  const hasPrimary = fs.existsSync(DATA_FILE);
+  const hasBackup = fs.existsSync(BACKUP_FILE);
+  const hasOld = fs.existsSync(OLD_DATA_FILE);
+  const hasWorkspace = fs.existsSync(WORKSPACE_DATA_FILE);
 
-  // 2. If primary failed, try backup file
-  if (!loadedSuccessfully && DATA_FILE !== BACKUP_FILE) {
-    console.warn("[State Load] Primary state file load failed. Trying backup file...");
+  if (!hasPrimary && !hasBackup && !hasOld && !hasWorkspace) {
+    if (!state.config.adminId && process.env.ADMIN_ID) {
+      state.config.adminId = process.env.ADMIN_ID;
+    }
+    if (!state.config.token && process.env.BOT_TOKEN) {
+      state.config.token = process.env.BOT_TOKEN;
+    }
+    isLoaded = true;
+    try {
+      saveState();
+    } catch (e) {}
+    return;
+  }
+
+  // 1. Try primary file
+  if (hasPrimary) {
+    loadedSuccessfully = tryLoadFromFile(DATA_FILE);
+  }
+
+  // 2. Try backup file
+  if (!loadedSuccessfully && hasBackup) {
     loadedSuccessfully = tryLoadFromFile(BACKUP_FILE);
   }
 
-  // 3. If backup failed, try OLD_DATA_FILE
-  if (!loadedSuccessfully) {
-    console.warn("[State Load] Backup state file load failed. Trying old/workspace fallback files...");
+  // 3. Try old / workspace fallbacks
+  if (!loadedSuccessfully && hasOld) {
     loadedSuccessfully = tryLoadFromFile(OLD_DATA_FILE);
-    if (!loadedSuccessfully) {
-      tryLoadFromFile(WORKSPACE_DATA_FILE);
-    }
+  }
+  if (!loadedSuccessfully && hasWorkspace) {
+    tryLoadFromFile(WORKSPACE_DATA_FILE);
   }
 
   // Fallback to .env variables if not set in state
