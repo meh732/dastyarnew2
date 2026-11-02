@@ -523,6 +523,7 @@ function loadState(force = false) {
       if (fs.existsSync(filePath)) {
         const raw = fs.readFileSync(filePath, "utf-8");
         if (!raw || raw.trim() === "") {
+          console.warn(`[State Load] File ${filePath} is empty, skipping.`);
           return false;
         }
         const saved = JSON.parse(raw);
@@ -555,7 +556,8 @@ function loadState(force = false) {
 
             // Save back to safe storage path if we migrated or loaded from backup
             if (filePath !== DATA_FILE) {
-              console.log(`[State Load] Migrated/restored state from ${filePath} to safe path: ${DATA_FILE}`);
+              console.log(`[State Load] Successfully migrated/restored state from ${filePath} to safe path: ${DATA_FILE}`);
+              // Use direct write to initialize the main file safely
               fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf-8");
             }
             return true;
@@ -563,46 +565,27 @@ function loadState(force = false) {
         }
       }
     } catch (e) {
-      // Ignore reading errors gracefully on fallback checks
+      console.error(`[State Load] Error reading or parsing state file ${filePath}:`, e);
     }
     return false;
   };
 
-  const hasPrimary = fs.existsSync(DATA_FILE);
-  const hasBackup = fs.existsSync(BACKUP_FILE);
-  const hasOld = fs.existsSync(OLD_DATA_FILE);
-  const hasWorkspace = fs.existsSync(WORKSPACE_DATA_FILE);
-
-  if (!hasPrimary && !hasBackup && !hasOld && !hasWorkspace) {
-    if (!state.config.adminId && process.env.ADMIN_ID) {
-      state.config.adminId = process.env.ADMIN_ID;
-    }
-    if (!state.config.token && process.env.BOT_TOKEN) {
-      state.config.token = process.env.BOT_TOKEN;
-    }
-    isLoaded = true;
-    try {
-      saveState();
-    } catch (e) {}
-    return;
-  }
-
   // 1. Try primary file
-  if (hasPrimary) {
-    loadedSuccessfully = tryLoadFromFile(DATA_FILE);
-  }
+  loadedSuccessfully = tryLoadFromFile(DATA_FILE);
 
-  // 2. Try backup file
-  if (!loadedSuccessfully && hasBackup) {
+  // 2. If primary failed, try backup file
+  if (!loadedSuccessfully && DATA_FILE !== BACKUP_FILE) {
+    console.warn("[State Load] Primary state file load failed. Trying backup file...");
     loadedSuccessfully = tryLoadFromFile(BACKUP_FILE);
   }
 
-  // 3. Try old / workspace fallbacks
-  if (!loadedSuccessfully && hasOld) {
+  // 3. If backup failed, try OLD_DATA_FILE
+  if (!loadedSuccessfully) {
+    console.warn("[State Load] Backup state file load failed. Trying old/workspace fallback files...");
     loadedSuccessfully = tryLoadFromFile(OLD_DATA_FILE);
-  }
-  if (!loadedSuccessfully && hasWorkspace) {
-    tryLoadFromFile(WORKSPACE_DATA_FILE);
+    if (!loadedSuccessfully) {
+      tryLoadFromFile(WORKSPACE_DATA_FILE);
+    }
   }
 
   // Fallback to .env variables if not set in state
@@ -3599,30 +3582,14 @@ app.post("/api/userbot/logout", async (req, res) => {
   }
 });
 
-let cachedUserbotDialogs: { groups: any[]; timestamp: number } | null = null;
-const DIALOG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
-
-// 4. List userbot groups/dialogs (Cached to protect against Telegram rate-limits)
+// 4. List userbot groups/dialogs
 app.get("/api/userbot/dialogs", async (req, res) => {
-  const isForce = req.query.force === 'true';
-
-  // Return cached dialogs if available and not forced
-  if (!isForce && cachedUserbotDialogs && (Date.now() - cachedUserbotDialogs.timestamp < DIALOG_CACHE_TTL)) {
-    res.json({ success: true, groups: cachedUserbotDialogs.groups, cached: true });
-    return;
-  }
-
   if (!userbotClient) {
     if (state.config.userbotSession && state.config.userbotApiId && state.config.userbotApiHash) {
       console.log("Userbot client is null but session exists. Attempting to start userbot...");
       try {
         await startUserbot();
       } catch (e) {
-        // Return cache fallback if starting failed but we have cache
-        if (cachedUserbotDialogs) {
-          res.json({ success: true, groups: cachedUserbotDialogs.groups, cached: true });
-          return;
-        }
         res.status(400).json({ error: "ربات کاربر متصل نیست و تلاش برای راه‌اندازی خودکار با خطا مواجه شد." });
         return;
       }
@@ -3676,18 +3643,9 @@ app.get("/api/userbot/dialogs", async (req, res) => {
       }
     }
     
-    cachedUserbotDialogs = {
-      groups,
-      timestamp: Date.now()
-    };
-
     res.json({ success: true, groups });
   } catch (err: any) {
     console.error("Failed to fetch userbot dialogs", err);
-    if (cachedUserbotDialogs) {
-      res.json({ success: true, groups: cachedUserbotDialogs.groups, cached: true });
-      return;
-    }
     res.status(500).json({ error: err.message || "خطا در دریافت لیست گروه‌ها از تلگرام." });
   }
 });
