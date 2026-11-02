@@ -3582,14 +3582,30 @@ app.post("/api/userbot/logout", async (req, res) => {
   }
 });
 
-// 4. List userbot groups/dialogs
+let cachedUserbotDialogs: { groups: any[]; timestamp: number } | null = null;
+const DIALOG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+
+// 4. List userbot groups/dialogs (Cached to protect against Telegram rate-limits)
 app.get("/api/userbot/dialogs", async (req, res) => {
+  const isForce = req.query.force === 'true';
+
+  // Return cached dialogs if available and not forced
+  if (!isForce && cachedUserbotDialogs && (Date.now() - cachedUserbotDialogs.timestamp < DIALOG_CACHE_TTL)) {
+    res.json({ success: true, groups: cachedUserbotDialogs.groups, cached: true });
+    return;
+  }
+
   if (!userbotClient) {
     if (state.config.userbotSession && state.config.userbotApiId && state.config.userbotApiHash) {
       console.log("Userbot client is null but session exists. Attempting to start userbot...");
       try {
         await startUserbot();
       } catch (e) {
+        // Return cache fallback if starting failed but we have cache
+        if (cachedUserbotDialogs) {
+          res.json({ success: true, groups: cachedUserbotDialogs.groups, cached: true });
+          return;
+        }
         res.status(400).json({ error: "ربات کاربر متصل نیست و تلاش برای راه‌اندازی خودکار با خطا مواجه شد." });
         return;
       }
@@ -3643,9 +3659,18 @@ app.get("/api/userbot/dialogs", async (req, res) => {
       }
     }
     
+    cachedUserbotDialogs = {
+      groups,
+      timestamp: Date.now()
+    };
+
     res.json({ success: true, groups });
   } catch (err: any) {
     console.error("Failed to fetch userbot dialogs", err);
+    if (cachedUserbotDialogs) {
+      res.json({ success: true, groups: cachedUserbotDialogs.groups, cached: true });
+      return;
+    }
     res.status(500).json({ error: err.message || "خطا در دریافت لیست گروه‌ها از تلگرام." });
   }
 });

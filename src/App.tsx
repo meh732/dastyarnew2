@@ -191,10 +191,12 @@ export default function App() {
     }
   }, [activeTab]);
 
-  const fetchDialogGroups = async () => {
-    setIsLoadingDialogs(true);
+  const fetchDialogGroups = async (force = false) => {
+    if (dialogGroups.length === 0 || force) {
+      setIsLoadingDialogs(true);
+    }
     try {
-      const res = await fetch('/api/userbot/dialogs');
+      const res = await fetch(`/api/userbot/dialogs${force ? '?force=true' : ''}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.groups) {
@@ -371,10 +373,10 @@ export default function App() {
         userRules: data.config?.userRules || []
       });
 
-      if (data.config?.userbotSession) {
-        // Fetch groups list on mount if already has session
+      if (data.config?.userbotSession && dialogGroups.length === 0) {
+        // Fetch groups list once on mount if session exists and list not loaded yet
         setTimeout(() => {
-          fetchDialogGroups();
+          fetchDialogGroups(false);
         }, 100);
       }
     } catch (err) {
@@ -1513,7 +1515,7 @@ export default function App() {
                             </div>
                             <button
                               type="button"
-                              onClick={fetchDialogGroups}
+                              onClick={() => fetchDialogGroups(true)}
                               disabled={isLoadingDialogs}
                               className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-lg font-bold transition-all disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer text-center shadow-sm"
                             >
@@ -1532,7 +1534,7 @@ export default function App() {
                               <p className="text-xs text-gray-500">لیست گروه‌ها هنوز دریافت نشده است یا در حال حاضر خالی است.</p>
                               <button
                                 type="button"
-                                onClick={fetchDialogGroups}
+                                onClick={() => fetchDialogGroups(true)}
                                 className="text-xs bg-purple-600 hover:bg-purple-700 text-white font-bold py-1.5 px-4 rounded-lg transition-all mx-auto block mt-2 shadow-sm"
                               >
                                 دریافت و بروزرسانی لیست گروه‌ها
